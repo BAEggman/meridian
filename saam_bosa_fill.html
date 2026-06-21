@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>사암 보사 빈칸채우기 ①자경 ②주객 ③정격·승격</title>
+<style>
+  :root{
+    --paper:#0d0906; --ink:#ece2cf; --dim:#9a8c74; --faint:#6f6450;
+    --panel:#171009; --panel2:#1d150c; --line:#352a1a; --gold:#cbb87e; --bronze:#8a6c2e;
+    --ok:#5e9a73; --no:#c0635a;
+    --mok:#6cab8f; --hwa:#d4756a; --to:#d2b76a; --geum:#d7d0c2; --su:#7aa6cc;
+    --serif:'Noto Serif KR','Nanum Myeongjo','Apple SD Gothic Neo','Malgun Gothic',serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+    text-rendering:optimizeLegibility;-webkit-text-size-adjust:100%}
+  #app{max-width:760px;margin:0 auto;padding:18px 14px 60px}
+  h1{font-size:18px;margin:2px 0 2px;letter-spacing:.02em}
+  .sub{color:var(--dim);font-size:12.5px;margin:0 0 14px;line-height:1.5}
+  .el-목{color:var(--mok)} .el-화{color:var(--hwa)} .el-토{color:var(--to)}
+  .el-금{color:var(--geum)} .el-수{color:var(--su)}
+  .filters{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .frow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .flab{color:var(--faint);font-size:11px;min-width:34px}
+  .chip{border:1px solid var(--line);background:var(--panel);color:var(--dim);
+    border-radius:999px;padding:5px 11px;font-size:12.5px;cursor:pointer;font-family:var(--serif);
+    transition:.12s}
+  .chip:hover{border-color:var(--bronze)}
+  .chip.on{background:var(--gold);color:#17120a;border-color:var(--gold);font-weight:700}
+  .meta{display:flex;justify-content:space-between;align-items:baseline;margin:6px 2px 8px;
+    color:var(--faint);font-size:12px}
+  .score b{color:var(--gold)}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:14px;padding:18px 16px 16px;min-height:120px}
+  .badge{display:inline-block;font-size:11.5px;color:var(--bronze);border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;margin-bottom:12px;letter-spacing:.04em}
+  .stem{font-size:17px;line-height:1.95}
+  .stem .pt{color:var(--gold)}
+  .blab{color:var(--faint);font-size:12px;margin:0 1px 0 3px}
+  .blank{display:inline-block;min-width:62px;text-align:center;border-bottom:2px solid var(--bronze);
+    padding:1px 6px 2px;margin:0 1px;cursor:pointer;color:var(--ink);font-weight:700;line-height:1.4;
+    vertical-align:baseline}
+  .blank.empty{color:transparent}
+  .blank.empty::after{content:'＿＿';color:var(--faint);font-weight:400}
+  .blank .du{font-size:11px;color:var(--dim);font-weight:400;margin-left:2px}
+  .blank.ok{border-color:var(--ok);color:var(--ok)}
+  .blank.no{border-color:var(--no);color:var(--no)}
+  .tray{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
+  .tile{border:1px solid var(--bronze);background:#241a0d;color:var(--ink);border-radius:9px;
+    padding:8px 12px;font-size:15px;cursor:pointer;font-family:var(--serif);transition:.1s;min-width:52px;text-align:center}
+  .tile:active{transform:translateY(1px)}
+  .tile.used{opacity:.22;pointer-events:none;border-style:dashed}
+  .tile .du{display:block;font-size:10.5px;color:var(--dim);margin-top:1px}
+  .actions{display:flex;gap:10px;margin-top:16px;align-items:center}
+  .btn{flex:1;border:1px solid var(--bronze);background:var(--gold);color:#17120a;border-radius:10px;
+    padding:11px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--serif)}
+  .btn.ghost{background:transparent;color:var(--dim);border-color:var(--line);flex:0 0 auto;padding:11px 16px}
+  .btn:disabled{opacity:.4;cursor:default}
+  .feed{margin-top:13px;font-size:13.5px;line-height:1.65;color:var(--dim);min-height:20px}
+  .feed .good{color:var(--ok)} .feed .bad{color:var(--no)}
+  .feed .law{color:var(--faint);font-size:12.5px;display:block;margin-top:3px}
+  .empty-deck{color:var(--faint);text-align:center;padding:30px 0}
+  .legend{margin-top:18px;color:var(--faint);font-size:11.5px;line-height:1.6;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>사암 보사 빈칸채우기</h1>
+  <p class="sub">오수혈 오행(음경 <span class="el-목">井木</span>·<span class="el-화">滎火</span>·<span class="el-토">兪土</span>·<span class="el-금">經金</span>·<span class="el-수">合水</span> / 양경 <span class="el-금">井金</span>·<span class="el-수">滎水</span>·<span class="el-목">兪木</span>·<span class="el-화">經火</span>·<span class="el-토">合土</span>)과 상생·상극으로 혈을 도출합니다. 칩을 눌러 빈칸을 채우세요.</p>
+
+  <div class="filters">
+    <div class="frow"><span class="flab">방식</span><div id="sysf" class="frow"></div></div>
+    <div class="frow"><span class="flab">경맥</span><div id="merf" class="frow"></div></div>
+  </div>
+
+  <div class="meta">
+    <span id="pos">–</span>
+    <span class="score">맞음 <b id="sc">0</b> / 푼 <span id="dn">0</span> · 덱 <span id="tot">0</span></span>
+  </div>
+
+  <div id="stage"></div>
+
+  <p class="legend">① 自經虛實補瀉法 · ② 主客原絡補瀉法 · ③ 舍巖 正格/勝格 — 全 데이터 舍巖 表 대조 검증 완료(불일치 0). 寒熱補瀉(④)는 補水瀉火/補水瀉土 두 판본 분기로 별도.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ===== 검증된 베이스 데이터 (12경) =====
+  var M = [
+   {k:'肺',kr:'폐',mer:'수태음폐경',pol:'음',el:'金',
+    pts:{井:['少商','소상'],滎:['魚際','어제'],兪:['太淵','태연'],經:['經渠','경거'],合:['尺澤','척택']},
+    won:['太淵','태연'], rak:['列缺','열결'], biao:'大腸'},
+   {k:'大腸',kr:'대장',mer:'수양명대장경',pol:'양',el:'金',
+    pts:{井:['商陽','상양'],滎:['二間','이간'],兪:['三間','삼간'],經:['陽谿','양계'],合:['曲池','곡지']},
+    won:['合谷','합곡'], rak:['偏歷','편력'], biao:'肺'},
+   {k:'胃',kr:'위',mer:'족양명위경',pol:'양',el:'土',
+    pts:{井:['厲兌','여태'],滎:['內庭','내정'],兪:['陷谷','함곡'],經:['解谿','해계'],合:['足三里','족삼리']},
+    won:['衝陽','충양'], rak:['豊隆','풍륭'], biao:'脾'},
+   {k:'脾',kr:'비',mer:'족태음비경',pol:'음',el:'土',
+    pts:{井:['隱白','은백'],滎:['大都','대도'],兪:['太白','태백'],經:['商丘','상구'],合:['陰陵泉','음릉천']},
+    won:['太白','태백'], rak:['公孫','공손'], biao:'胃'},
+   {k:'心',kr:'심',mer:'수소음심경',pol:'음',el:'火',
+    pts:{井:['少衝','소충'],滎:['少府','소부'],兪:['神門','신문'],經:['靈道','영도'],合:['少海','소해']},
+    won:['神門','신문'], rak:['通里','통리'], biao:'小腸'},
+   {k:'小腸',kr:'소장',mer:'수태양소장경',pol:'양',el:'火',
+    pts:{井:['少澤','소택'],滎:['前谷','전곡'],兪:['後谿','후계'],經:['陽谷','양곡'],合:['小海','소해']},
+    won:['腕骨','완골'], rak:['支正','지정'], biao:'心'},
+   {k:'膀胱',kr:'방광',mer:'족태양방광경',pol:'양',el:'水',
+    pts:{井:['至陰','지음'],滎:['足通谷','통곡'],兪:['束骨','속골'],經:['崑崙','곤륜'],合:['委中','위중']},
+    won:['京骨','경골'], rak:['飛揚','비양'], biao:'腎'},
+   {k:'腎',kr:'신',mer:'족소음신경',pol:'음',el:'水',
+    pts:{井:['湧泉','용천'],滎:['然谷','연곡'],兪:['太谿','태계'],經:['復溜','부류'],合:['陰谷','음곡']},
+    won:['太谿','태계'], rak:['大鍾','대종'], biao:'膀胱'},
+   {k:'心包',kr:'심포',mer:'수궐음심포경',pol:'음',el:'火',
+    pts:{井:['中衝','중충'],滎:['勞宮','노궁'],兪:['大陵','대릉'],經:['間使','간사'],合:['曲澤','곡택']},
+    won:['大陵','대릉'], rak:['內關','내관'], biao:'三焦'},
+   {k:'三焦',kr:'삼초',mer:'수소양삼초경',pol:'양',el:'火',
+    pts:{井:['關衝','관충'],滎:['液門','액문'],兪:['中渚','중저'],經:['支溝','지구'],合:['天井','천정']},
+    won:['陽池','양지'], rak:['外關','외관'], biao:'心包'},
+   {k:'膽',kr:'담',mer:'족소양담경',pol:'양',el:'木',
+    pts:{井:['足竅陰','규음'],滎:['俠谿','협계'],兪:['足臨泣','임읍'],經:['陽輔','양보'],合:['陽陵泉','양릉천']},
+    won:['丘墟','구허'], rak:['光明','광명'], biao:'肝'},
+   {k:'肝',kr:'간',mer:'족궐음간경',pol:'음',el:'木',
+    pts:{井:['大敦','대돈'],滎:['行間','행간'],兪:['太衝','태충'],經:['中封','중봉'],合:['曲泉','곡천']},
+    won:['太衝','태충'], rak:['蠡溝','여구'], biao:'膽'},
+  ];
+
+  var ORDER=['木','火','土','金','水'];
+  var KR={木:'목',火:'화',土:'토',金:'금',水:'수'};
+  function idx(e){return ORDER.indexOf(e);}
+  function mo(e){return ORDER[(idx(e)+4)%5];}    // 母 生我
+  function ja(e){return ORDER[(idx(e)+1)%5];}    // 子 我生
+  function gwan(e){return ORDER[(idx(e)+3)%5];}  // 官 克我
+  var POS={음:{木:'井',火:'滎',土:'兪',金:'經',水:'合'},
+           양:{金:'井',水:'滎',木:'兪',火:'經',土:'合'}};
+  function byK(k){for(var i=0;i<M.length;i++){if(M[i].k===k)return M[i];}return null;}
+  function ptOf(m,el){return m.pts[POS[m.pol][el]];}
+  function posName(m,el){return POS[m.pol][el];}
+  function merByEl(el,pol){
+    var c=M.filter(function(m){return m.el===el&&m.pol===pol;});
+    if(c.length===1) return c[0];
+    var jun = pol==='음'?'心':'小腸';
+    for(var i=0;i<c.length;i++){if(c[i].k===jun)return c[i];}
+    return c[0];
+  }
+  function colorize(t){ return t.replace(/[木火土金水]/g,function(c){return '<span class="el-'+KR[c]+'">'+c+'</span>';}); }
+  function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+  // ===== 카드 빌더 =====
+  function pt(o){return {h:o[0],d:o[1]};}        // [한자,독음] -> {h,d}
+  function eq(a,b){return a.h===b.h;}
+  function distractors(answers, srcMers, n){
+    var pool=[]; srcMers.forEach(function(m){['井','滎','兪','經','合'].forEach(function(p){pool.push(pt(m.pts[p]));});});
+    // 중복/정답 제거
+    var seen={}, out=[];
+    answers.forEach(function(a){seen[a.h]=1;});
+    shuffle(pool).forEach(function(p){ if(!seen[p.h]){seen[p.h]=1; out.push(p);} });
+    return out.slice(0,n);
+  }
+  function makeCard(sys, merKey, badge, parts, answers, distMers, nDist){
+    var pool = shuffle(answers.concat(distractors(answers, distMers, nDist||2)));
+    return {sys:sys, mer:merKey, badge:badge, parts:parts, answers:answers, pool:pool};
+  }
+
+  function mkJagyeong(m, kind){
+    var isSil = kind==='sil';
+    var el = isSil ? ja(m.el) : mo(m.el);
+    var P  = pt(ptOf(m, el));
+    var expr = isSil ? (m.el+'生'+el) : (el+'生'+m.el);   // 子: 自生子 / 母: 母生自
+    var parts = [
+      {t:m.k+'('+m.el+') '+(isSil?'實證':'虛證')+' ⟶ '+(isSil?'子':'母')+'('+expr+')인 '},
+      {hl: posName(m,el)+el+'穴 '},
+      {b:{label:m.k, ans:P}},
+      {t:' 을 '+(isSil?'瀉':'補')}
+    ];
+    return makeCard('自經', m.k, '① 自經 · '+(isSil?'實證(瀉子)':'虛證(補母)'),
+      parts, [P], [m], 3);
+  }
+  function mkJugaek(m){
+    var bm = byK(m.biao);
+    var won = pt(m.won), rak = pt(bm.rak);
+    var parts = [
+      {t:m.k+' 主客原絡 ⟶ 主經('+m.k+')의 '}, {hl:'原穴 '},
+      {b:{label:m.k+' 原', ans:won}},
+      {t:' · 表裏經('+bm.k+')의 '}, {hl:'絡穴 '},
+      {b:{label:bm.k+' 絡', ans:rak}}
+    ];
+    return makeCard('主客', m.k, '② 主客原絡 · 原+絡', parts, [won,rak], [m,bm], 3);
+  }
+  function blabel(o){ return o.m.k+' '+posName(o.m,o.el)+o.el; }
+  function mkJeong(m){
+    var mE=mo(m.el), gE=gwan(m.el);
+    var bo=[{m:m,el:mE}, {m:merByEl(mE,m.pol),el:mE}];
+    var sa=[{m:m,el:gE}, {m:merByEl(gE,m.pol),el:gE}];
+    var ans = bo.concat(sa).map(function(o){return pt(ptOf(o.m,o.el));});
+    var parts=[
+      {t:m.k+'正格(虛) · 補母('+(mE+'生'+m.el)+') ⟶ '},
+      {b:{label:blabel(bo[0]),ans:pt(ptOf(bo[0].m,bo[0].el))}}, {t:' · '},
+      {b:{label:blabel(bo[1]),ans:pt(ptOf(bo[1].m,bo[1].el))}},
+      {t:' · 瀉官('+(gE+'克'+m.el)+') ⟶ '},
+      {b:{label:blabel(sa[0]),ans:pt(ptOf(sa[0].m,sa[0].el))}}, {t:' · '},
+      {b:{label:blabel(sa[1]),ans:pt(ptOf(sa[1].m,sa[1].el))}}
+    ];
+    var mers=[m, bo[1].m, sa[1].m];
+    return makeCard('正格', m.k, '③ 正格(補) · 補母+瀉官', parts, ans, mers, 2);
+  }
+  function mkSeung(m){
+    var jE=ja(m.el), gE=gwan(m.el);
+    var sa=[{m:m,el:jE}, {m:merByEl(jE,m.pol),el:jE}];
+    var bo=[{m:m,el:gE}, {m:merByEl(gE,m.pol),el:gE}];
+    var ans = sa.concat(bo).map(function(o){return pt(ptOf(o.m,o.el));});
+    var parts=[
+      {t:m.k+'勝格(實) · 瀉子('+(m.el+'生'+jE)+') ⟶ '},
+      {b:{label:blabel(sa[0]),ans:pt(ptOf(sa[0].m,sa[0].el))}}, {t:' · '},
+      {b:{label:blabel(sa[1]),ans:pt(ptOf(sa[1].m,sa[1].el))}},
+      {t:' · 補官('+(gE+'克'+m.el)+') ⟶ '},
+      {b:{label:blabel(bo[0]),ans:pt(ptOf(bo[0].m,bo[0].el))}}, {t:' · '},
+      {b:{label:blabel(bo[1]),ans:pt(ptOf(bo[1].m,bo[1].el))}}
+    ];
+    var mers=[m, sa[1].m, bo[1].m];
+    return makeCard('勝格', m.k, '③ 勝格(瀉) · 瀉子+補官', parts, ans, mers, 2);
+  }
+
+  var CARDS=[];
+  M.forEach(function(m){
+    CARDS.push(mkJagyeong(m,'sil'));
+    CARDS.push(mkJagyeong(m,'heo'));
+    CARDS.push(mkJugaek(m));
+    CARDS.push(mkJeong(m));
+    CARDS.push(mkSeung(m));
+  });
+
+  // ===== 상태/렌더 =====
+  var SYS=['전체','自經','主客','正格','勝格'];
+  var state={sys:'전체', mer:'전체', deck:[], i:0, sc:0, dn:0, filled:[], used:{}, checked:false};
+  var $=function(id){return document.getElementById(id);};
+
+  function buildDeck(){
+    state.deck = shuffle(CARDS.filter(function(c){
+      return (state.sys==='전체'||c.sys===state.sys) && (state.mer==='전체'||c.mer===state.mer);
+    }));
+    state.i=0;
+  }
+  function renderFilters(){
+    var sf=$('sysf'); if(!sf) return; sf.innerHTML='';
+    SYS.forEach(function(s){
+      var b=document.createElement('button'); b.className='chip'+(state.sys===s?' on':''); b.textContent=s;
+      b.onclick=function(){state.sys=s; buildDeck(); render();}; sf.appendChild(b);
+    });
+    var mf=$('merf'); if(!mf) return; mf.innerHTML='';
+    var mers=['전체'].concat(M.map(function(m){return m.k;}));
+    mers.forEach(function(label){
+      var key = label;
+      var b=document.createElement('button'); b.className='chip'+(state.mer===key?' on':''); b.textContent=label;
+      b.onclick=function(){state.mer=key; buildDeck(); render();}; mf.appendChild(b);
+    });
+  }
+
+  function render(){
+    renderFilters();
+    var card = state.deck[state.i];
+    var stage=$('stage'); if(!stage) return;
+    $('tot').textContent=state.deck.length;
+    $('sc').textContent=state.sc; $('dn').textContent=state.dn;
+    if(!card){ $('pos').textContent='–'; stage.innerHTML='<div class="card"><div class="empty-deck">해당 조건의 카드가 없습니다.</div></div>'; return; }
+    $('pos').textContent=(state.i+1)+' / '+state.deck.length;
+
+    // reset fill if new card
+    if(!state._curKey || state._curKey!==cardKey(card)){
+      state._curKey=cardKey(card); state.filled=card.answers.map(function(){return null;}); state.used={}; state.checked=false;
+    }
+
+    // build stem html
+    var bi=0, html='';
+    card.parts.forEach(function(p){
+      if(p.t){ html+=colorize(p.t); }
+      else if(p.hl){ html+='<span class="pt">'+colorize(p.hl)+'</span>'; }
+      else if(p.b){
+        var j=bi++; var f=state.filled[j];
+        var cls='blank'+(f===null?' empty':'');
+        if(state.checked && f!==null){ cls+= eq(f, p.b.ans)?' ok':' no'; }
+        html+='<span class="blab">'+p.b.label+'</span>';
+        html+='<span class="blank '+cls+'" data-bi="'+j+'">'+(f? (f.h+'<span class="du">'+f.d+'</span>') :'')+'</span>';
+      }
+    });
+
+    var tray='';
+    card.pool.forEach(function(t,k){
+      var u=state.used[k]?' used':'';
+      tray+='<div class="tile'+u+'" data-ti="'+k+'">'+t.h+'<span class="du">'+t.d+'</span></div>';
+    });
+
+    var allFilled = state.filled.every(function(x){return x!==null;});
+    var feed = card._feed||'';
+    stage.innerHTML =
+      '<div class="card">'+
+        '<span class="badge">'+card.badge+'</span>'+
+        '<div class="stem">'+html+'</div>'+
+        '<div class="tray">'+tray+'</div>'+
+        '<div class="feed">'+feed+'</div>'+
+        '<div class="actions">'+
+          '<button class="btn" id="chk" '+((!allFilled||state.checked)?'disabled':'')+'>확인</button>'+
+          '<button class="btn ghost" id="nxt">다음 ▸</button>'+
+        '</div>'+
+      '</div>';
+
+    // wire
+    Array.prototype.forEach.call(stage.querySelectorAll('.tile'), function(el){
+      el.onclick=function(){ if(state.checked) return; var k=+el.getAttribute('data-ti'); if(state.used[k])return;
+        var slot=state.filled.indexOf(null); if(slot<0)return; state.filled[slot]=card.pool[k]; state.used[k]=1; render(); };
+    });
+    Array.prototype.forEach.call(stage.querySelectorAll('.blank'), function(el){
+      el.onclick=function(){ if(state.checked) return; var j=+el.getAttribute('data-bi'); var f=state.filled[j]; if(!f)return;
+        // return tile to tray
+        for(var k=0;k<card.pool.length;k++){ if(state.used[k] && card.pool[k]===f){ delete state.used[k]; break; } }
+        state.filled[j]=null; render(); };
+    });
+    var chk=$('chk'); if(chk) chk.onclick=function(){ doCheck(card); };
+    var nxt=$('nxt'); if(nxt) nxt.onclick=function(){ next(); };
+  }
+
+  function cardKey(c){ return c.sys+'|'+c.mer+'|'+c.badge; }
+
+  function doCheck(card){
+    state.checked=true; state.dn++;
+    var allOk=true, lines=[];
+    card.answers.forEach(function(a,j){
+      var f=state.filled[j];
+      if(!f||!eq(f,a)){ allOk=false; lines.push('<span class="bad">✗</span> '+(f?f.h:'∅')+' → 정답 '+a.h+'('+a.d+')'); }
+    });
+    if(allOk){ state.sc++; card._feed='<span class="good">✓ 정답</span> '+lawOf(card); }
+    else{ card._feed='<span class="bad">오답</span> '+lines.join(' · ')+'<span class="law">'+lawOf(card)+'</span>'; }
+    render();
+  }
+  function lawOf(c){
+    if(c.sys==='自經') return '— 自經 안에서 實則瀉子 · 虛則補母';
+    if(c.sys==='主客') return '— 主經 原穴 + 表裏經 絡穴 (原絡配穴)';
+    if(c.sys==='正格') return '— 補母(生我) + 瀉官(克我者), 自經+해당 他經';
+    if(c.sys==='勝格') return '— 瀉子(我生) + 補官(克我者), 自經+해당 他經';
+    return '';
+  }
+  function next(){ state.i=(state.i+1)%Math.max(1,state.deck.length); state._curKey=null; render(); }
+
+  buildDeck(); render();
+})();
+</script>
+</body>
+</html>
