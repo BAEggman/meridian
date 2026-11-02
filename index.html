@@ -191,7 +191,7 @@
 </style>
 <div class="wrap">
   <div class="brand"><span class="ko">경혈 마스터</span><span class="han">五輸·特定穴·經脈순행·간격반복</span></div>
-  <div class="tag">매일 복습 · 오답은 3·7·30일 뒤 다시 출제</div>
+  <div class="tag">매일 복습 · 처음 맞히면 7일, 오답은 3일 뒤 · 맞힐수록 간격이 늘어남(졸업 없음)</div>
 
   <section id="home">
     <div class="due">
@@ -199,7 +199,7 @@
         <div class="cell"><div class="v hot" id="dueN">0</div><div class="l">오늘 복습</div></div>
         <div class="cell"><div class="v" id="streakN">0</div><div class="l">연속 학습(일)</div></div>
         <div class="cell"><div class="v" id="trackN">0</div><div class="l">추적 중 카드</div></div>
-        <div class="cell"><div class="v" id="masterN">0</div><div class="l">졸업</div></div>
+        <div class="cell"><div class="v" id="masterN">0</div><div class="l">유지(30일+)</div></div>
       </div>
       <div class="btns">
         <button class="btn btn-go" id="studyBtn">오늘 학습 시작</button>
@@ -267,9 +267,9 @@
       <div class="review hidden" id="schedWrap">
         <div class="rl">예정된 복습</div>
         <div class="sched">
-          <div class="s"><div class="v" id="sc3">0</div><div class="l">3일 뒤</div></div>
-          <div class="s"><div class="v" id="sc7">0</div><div class="l">7일 뒤</div></div>
-          <div class="s"><div class="v" id="sc30">0</div><div class="l">한달 뒤</div></div>
+          <div class="s"><div class="v" id="sc3">0</div><div class="l">3일 내</div></div>
+          <div class="s"><div class="v" id="sc7">0</div><div class="l">7일 내</div></div>
+          <div class="s"><div class="v" id="sc30">0</div><div class="l">한 달 내</div></div>
         </div>
       </div>
       <div class="review hidden" id="reviewBox">
@@ -435,7 +435,7 @@
 <div class="wrap">
   <div class="kicker">經絡系統 · 機能 · SRS QUIZ</div>
   <h1>경락계통 기능 암기<span class="ko">十二經脈 · 經別 · 絡脈 · 奇經八脈 · 經筋 · 皮部</span></h1>
-  <p class="lede">계통별 기능 · 기경팔맥 별칭 · 헷갈리는 변별 · 구성/소속 · 原文을 5지선다로 익힙니다. 틀린 문제는 <b>3일→7일→30일</b> 간격으로 다시 출제됩니다.</p>
+  <p class="lede">계통별 기능 · 기경팔맥 별칭 · 헷갈리는 변별 · 구성/소속 · 原文을 5지선다로 익힙니다. 처음 맞힌 문제는 7일 뒤, 틀린 문제는 3일 뒤 다시 나오고, 맞힐수록 <b>7→14→30→60→120일</b>로 간격이 늘어납니다(졸업 없음).</p>
 
   <div class="cats" id="cats"></div>
 
@@ -582,7 +582,7 @@
 <div class="wrap">
   <div class="kicker">經絡 發展史 · 醫家·著書 · SRS QUIZ</div>
   <h1>경락 학설 발전사<span class="ko">人物 · 著書 · 穴數 · 時代</span></h1>
-  <p class="lede">마왕퇴 帛書부터 淸代까지 醫家·著書·穴數·핵심 業績을 5지선다로 익힙니다. <b>人物·著書·時代 미스매칭</b>에 강해집니다. 틀린 문제는 <b>3일→7일→30일</b> 간격으로 복습됩니다.</p>
+  <p class="lede">마왕퇴 帛書부터 淸代까지 醫家·著書·穴數·핵심 業績을 5지선다로 익힙니다. <b>人物·著書·時代 미스매칭</b>에 강해집니다. 처음 맞힌 문제는 7일 뒤, 틀린 문제는 3일 뒤 다시 나오고, 맞힐수록 <b>7→14→30→60→120일</b>로 간격이 늘어납니다(졸업 없음).</p>
 
   <div class="cats" id="cats"></div>
 
@@ -729,7 +729,7 @@
 <div class="wrap">
   <div class="kicker">十二經脈 是動病·所生病 · SRS QUIZ</div>
   <h1>시동병 · 소생병<span class="ko">是動 · 所生 / 主病</span></h1>
-  <p class="lede">12경맥의 <b>是動病·所生病</b> 증상, <b>所生病 主</b>(津血液筋脈氣骨), 시동/소생 개념을 5지선다로 익힙니다. 틀린 문제는 <b>3일→7일→30일</b> 간격으로 복습됩니다.</p>
+  <p class="lede">12경맥의 <b>是動病·所生病</b> 증상, <b>所生病 主</b>(津血液筋脈氣骨), 시동/소생 개념을 5지선다로 익힙니다. 처음 맞힌 문제는 7일 뒤, 틀린 문제는 3일 뒤 다시 나오고, 맞힐수록 <b>7→14→30→60→120일</b>로 간격이 늘어납니다(졸업 없음).</p>
 
   <div class="cats" id="cats"></div>
 
@@ -1169,13 +1169,13 @@ const POOL={
 };
 
 /* ============ DATES & SRS ============ */
-const INT={1:3,2:7,3:30};
+const INT={1:3,2:7,3:14,4:30,5:60,6:120}; const ST_MAX=6; /* 오답→3일, 처음 맞힘→7일, 이후 성공마다 확장 · 졸업 없음 */
 function isoOf(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function today(){return isoOf(new Date());}
 function addDays(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return isoOf(d);}
 let db={v:3,cards:{},stats:{lastDay:null,streak:0,days:0},log:{}};
 function schedMiss(id){let c=db.cards[id];if(!c){c={st:0,due:null,lapses:0};db.cards[id]=c;}c.st=1;c.due=addDays(today(),3);c.lapses=(c.lapses||0)+1;}
-function schedReview(id,ok){let c=db.cards[id];if(!c){if(!ok)schedMiss(id);return;}if(ok){if((c.st||1)>=3){c.st=4;c.due=null;}else{c.st=(c.st||1)+1;c.due=addDays(today(),INT[c.st]);}}else{c.st=1;c.due=addDays(today(),3);c.lapses=(c.lapses||0)+1;}}
+function schedReview(id,ok){let c=db.cards[id];const t=today();if(!c){if(ok){db.cards[id]={st:2,due:addDays(t,INT[2]),lapses:0,first:t};}else schedMiss(id);return;}if(ok){if(c.due&&c.due<=t){c.st=Math.min((c.st||1)+1,ST_MAX);c.due=addDays(t,INT[c.st]);}else if(!c.due){c.st=Math.max(c.st||1,4);c.due=addDays(t,INT[c.st]);}/* 기한 전 조기 정답은 간격 유지 */}else{c.st=1;c.due=addDays(t,3);c.lapses=(c.lapses||0)+1;}}
 function dueIds(enabled){const t=today();return Object.keys(db.cards).filter(id=>{const c=db.cards[id];return c.due&&c.due<=t&&enabled.has(id.split('|')[0]);});}
 function countMastered(){return Object.values(db.cards).filter(c=>c.st>=4).length;}
 function countTracked(){return Object.values(db.cards).filter(c=>c.due).length;}
@@ -1190,7 +1190,7 @@ async function loadDB(){
   storeMode='memory';if(_mem){try{db=JSON.parse(_mem);}catch(e){}}
 }
 function saveDB(){const s=JSON.stringify(db);_mem=s;try{if(lsAvail())localStorage.setItem(KEY,s);}catch(e){}try{if(window.storage)window.storage.set(KEY,s);}catch(e){}}
-function normalizeDB(){if(!db||typeof db!=='object')db={};if(!db.cards)db.cards={};if(!db.stats)db.stats={lastDay:null,streak:0,days:0};if(!db.log)db.log={};db.v=3;
+function normalizeDB(){if(!db||typeof db!=='object')db={};if(!db.cards)db.cards={};if(!db.stats)db.stats={lastDay:null,streak:0,days:0};if(!db.log)db.log={};db.v=3;Object.keys(db.cards).forEach(k=>{const c=db.cards[k];if(c&&!c.due){let h=0;for(let i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))>>>0;c.st=Math.max(c.st||1,4);c.due=addDays(today(),7+(h%24));}});/* 구버전 졸업 카드 → 유지 단계 */
   const valid=new Set(CATS_DEF.map(c=>c.id));Object.keys(db.cards).forEach(id=>{if(!valid.has(id.split('|')[0]))delete db.cards[id];});}
 
 /* ============ QUESTION BUILDERS ============ */
@@ -1316,7 +1316,7 @@ function renderTimeChart(){
 }
 function refreshHome(){normalizeDB();const due=dueIds(enabledCats);$('dueN').textContent=due.length;$('streakN').textContent=db.stats.streak||0;$('trackN').textContent=countTracked();$('masterN').textContent=countMastered();$('revBtn').classList.toggle('off',due.length===0);$('revBtn').textContent=due.length?`복습만 ${due.length}`:'복습 없음';renderTimeChart();}
 function refreshHomeQuiet(){try{$('dueN').textContent=dueIds(enabledCats).length;$('trackN').textContent=countTracked();$('masterN').textContent=countMastered();$('streakN').textContent=db.stats.streak||0;}catch(e){}}
-function startGame(mode){if(window.__focusDrill&&window.__focusDrill.tool==='acu'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();window.__focusDrill=null;normalizeDB();touchDay();var _due=_fd.filter(function(id){try{return !!qById(id);}catch(e){return false;}});_due=shuffle(_due);if(!_due.length){toast('복습할 문항이 없어요');return;}G={score:0,lives:sel.life,total:0,correct:0,streak:0,maxStreak:0,missed:[],answered:false,reviewQ:_due,sinceMiss:0,mode:'review',sessionMissIds:new Set()};$('home').classList.add('hidden');$('result').classList.add('hidden');$('play').classList.remove('hidden');renderHud();nextQuestion();return;}
+function startGame(mode){if(window.__focusDrill&&window.__focusDrill.tool==='acu'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();var _hub=!!window.__focusDrill.hub;window.__focusDrill=null;normalizeDB();touchDay();var _due=_fd.filter(function(id){try{return !!qById(id);}catch(e){return false;}});_due=shuffle(_due);if(!_due.length){toast('복습할 문항이 없어요');if(_hub){setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},500);}return;}G={score:0,lives:sel.life,total:0,correct:0,streak:0,maxStreak:0,missed:[],answered:false,reviewQ:_due,sinceMiss:0,mode:'review',sessionMissIds:new Set(),hub:_hub};$('home').classList.add('hidden');$('result').classList.add('hidden');$('play').classList.remove('hidden');renderHud();nextQuestion();return;}
   normalizeDB();touchDay();
   const due=shuffle(dueIds(enabledCats));
   if(mode==='review'&&due.length===0){toast('오늘 복습할 카드가 없어요');return;}
@@ -1362,7 +1362,7 @@ function choose(val,btn){
   let srsMsg='';
   if(ok){
     btn.classList.add('glow');G.correct++;G.streak++;G.maxStreak=Math.max(G.maxStreak,G.streak);G.score+=10+Math.max(0,G.streak-1)*2;db.log[t].c++;
-    if(q._fromReview){schedReview(q.id,true);const c=db.cards[q.id];if(c&&c.st>=4)srsMsg='✓ 졸업! 더 이상 복습 안 함';else if(c)srsMsg=`✓ 통과 → ${c.due} 재복습`;}
+    {const _had=!!db.cards[q.id];schedReview(q.id,true);const c=db.cards[q.id];if(!_had&&c)srsMsg=`✓ 처음 맞힘 → ${INT[2]}일 뒤 확인 (${c.due})`;else if(c&&q._fromReview)srsMsg=(c.st>=4?'✓ 유지 → ':'✓ 통과 → ')+`${INT[Math.min(c.st,ST_MAX)]}일 뒤 (${c.due})`;else if(c)srsMsg=`✓ 정답 · 다음 확인 ${c.due}`;}
   } else {
     if(!actuallyCorrect){btn.classList.add('wrong');$('qcard').classList.add('shake');setTimeout(()=>{const _c=$('qcard');if(_c)_c.classList.remove('shake');},350);}G.streak=0;
     if(q._fromReview)schedReview(q.id,false);else schedMiss(q.id);
@@ -1383,11 +1383,12 @@ function endGame(){
   $('play').classList.add('hidden');$('result').classList.remove('hidden');
   $('resTitle').textContent=sel.life>0?(G.lives>0?'결과':'게임 오버'):(G.mode==='review'?'복습 완료':'학습 종료');
   $('resScore').textContent=G.score;$('resTotal').textContent=G.total;$('resAcc').textContent=(G.total?Math.round(G.correct/G.total*100):0)+'%';$('resStreak').textContent=G.maxStreak;
-  let s3=0,s7=0,s30=0;Object.values(db.cards).forEach(c=>{if(!c.due)return;if(c.st===1)s3++;else if(c.st===2)s7++;else if(c.st===3)s30++;});
+  let s3=0,s7=0,s30=0;const _t=today(),_b3=addDays(_t,3),_b7=addDays(_t,7),_b30=addDays(_t,30);Object.values(db.cards).forEach(c=>{if(!c.due)return;if(c.due<=_b3)s3++;else if(c.due<=_b7)s7++;else if(c.due<=_b30)s30++;});
   $('sc3').textContent=s3;$('sc7').textContent=s7;$('sc30').textContent=s30;$('schedWrap').classList.toggle('hidden',(s3+s7+s30)===0);
   const seen=new Set(),rows=[];G.missed.forEach(q=>{if(seen.has(q.qtext))return;seen.add(q.qtext);rows.push(q);});
   if(rows.length){$('reviewBox').classList.remove('hidden');$('reviewList').innerHTML=rows.slice(0,16).map(q=>`<div class="rrow"><span class="q">${q.qtext}</span><span class="a">${q.answer}</span></div>`).join('');}else $('reviewBox').classList.add('hidden');
   saveDB();refreshHome();
+  if(G.hub){G.hub=false;$('resTitle').textContent+=' · 통합 세션 — 다음 도구로…';setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},1400);}
 }
 
 /* ============ HOME WIRING ============ */
@@ -1519,7 +1520,7 @@ const BANK = [
 
 /* ============== SRS engine ============== */
 const KEY='gyeongnak_func_srs_v1';
-const INT={1:3,2:7,3:30};
+const INT={1:3,2:7,3:14,4:30,5:60,6:120}; const ST_MAX=6; /* 오답→3일, 처음 맞힘→7일, 이후 성공마다 확장 · 졸업 없음 */
 const G={ db:null, queue:[], cur:null, answered:false, mode:'today',
   active:new Set(CATS.map(c=>c.key)),
   sCorrect:0, sWrong:0, sStreak:0, sBest:0, sSeen:0, sTotal:0, sinceMiss:99 };
@@ -1534,6 +1535,8 @@ function loadDB(){
   // prune cards no longer in bank
   const ids=new Set(BANK.map(b=>b.id));
   for(const k of Object.keys(db.cards)) if(!ids.has(k)) delete db.cards[k];
+  // 구버전 '졸업'(due=null) 카드 → 유지 단계로 복귀, 7~30일에 분산
+  for(const k of Object.keys(db.cards)){ const c=db.cards[k]; if(c && !c.due){ let h=0; for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; c.st=Math.max(c.st||1,4); c.due=addDays(today(), 7+(h%24)); } }
   G.db=db;
 }
 function saveDB(){ try{ localStorage.setItem(KEY, JSON.stringify(G.db)); }catch(e){} }
@@ -1556,13 +1559,21 @@ function buildQueue(mode){
   let q;
   if(mode==='review') q=due;
   else if(mode==='practice'){ q=BANK.filter(b=>G.active.has(b.cat)).map(b=>b.id); shuffle(q); }
-  else q=[...due, ...fresh];
+  else {
+    const NEW_CAP=12; // 하루 신규 유입 상한
+    q=[...due, ...fresh.slice(0,NEW_CAP)];
+    if(!q.length){ // 전부 카드화됐고 오늘 기한도 없음 → 기한이 가장 가까운 10장 앞당겨 복습
+      const ahead=BANK.filter(b=>G.active.has(b.cat)&&G.db.cards[b.id]&&G.db.cards[b.id].due)
+        .sort((x,y)=>G.db.cards[x.id].due<G.db.cards[y.id].due?-1:1).slice(0,10).map(b=>b.id);
+      q=shuffle(ahead);
+    }
+  }
   return q;
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ============== flow ============== */
-function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='func'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();return;}nextQ();refreshStats();return;}
+function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='func'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();var _hub=!!window.__focusDrill.hub;window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.hub=_hub;G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();if(_hub){G.hub=false;setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},500);}return;}nextQ();refreshStats();return;}
   G.mode=mode;
   G.queue=buildQueue(mode);
   G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0; G.sinceMiss=99;
@@ -1594,7 +1605,7 @@ function renderQ(b){
   const cm=catMeta(b.cat);
   const cc=getComputedStyle(document.documentElement).getPropertyValue(cm.v).trim();
   const c=G.db.cards[b.id];
-  const stTag = c ? (c.due ? `복습 ${c.st||1}단계` : '졸업') : '신규';
+  const stTag = c ? (((c.st||1)>=4) ? `유지 ${INT[Math.min(c.st||1,ST_MAX)]}일` : `복습 ${c.st||1}단계`) : '신규';
   // build options
   const opts=shuffle([b.a, ...b.d]).slice();
   const letters=['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ'];
@@ -1644,11 +1655,17 @@ function choose(btn){
   let srsMsg='';
   if(correct){
     G.sCorrect++; G.sStreak++; G.sBest=Math.max(G.sBest,G.sStreak); G.sinceMiss++;
-    if(card && card.due){ // reviewing a lapsed card
-      card.st=(card.st||1)+1;
-      if(card.st>=4){ card.due=null; srsMsg='✓ 졸업 — 이제 자동 출제되지 않습니다.'; }
-      else{ card.due=addDays(t, INT[card.st]); srsMsg=`✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`; }
-    } else { srsMsg='✓ 정답.'; }
+    if(!card){ // 처음 맞힘 → 카드 생성, 7일 뒤 확인
+      G.db.cards[b.id]={st:2,due:addDays(t,INT[2]),lapses:0,first:t};
+      srsMsg=`✓ 처음 맞힘 → ${INT[2]}일 뒤 확인.`;
+    } else if(card.due && card.due<=t){ // 예정된 복습 성공 → 간격 확장 (졸업 없음)
+      card.st=Math.min((card.st||1)+1, ST_MAX);
+      card.due=addDays(t, INT[card.st]);
+      srsMsg = card.st>=4 ? `✓ 유지 단계 → ${INT[card.st]}일 뒤 다시.` : `✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`;
+    } else { // 기한 전 조기 정답(연습 등) → 간격 유지
+      if(!card.due){ card.st=Math.max(card.st||1,4); card.due=addDays(t, INT[card.st]); }
+      srsMsg=`✓ 정답 (다음 확인 ${card.due}).`;
+    }
   } else {
     G.sWrong++; G.sStreak=0; G.sinceMiss=0;
     const cc=G.db.cards[b.id]||{lapses:0};
@@ -1685,12 +1702,13 @@ function finish(){
   $('r-correct').textContent=G.sCorrect; $('r-wrong').textContent=G.sWrong; $('r-streak').textContent=G.sBest;
   // due buckets after this session
   const t2=today(); const b3=addDays(t2,3),b7=addDays(t2,7),b30=addDays(t2,30);
-  let n3=0,n7=0,n30=0;
-  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else n30++; }
-  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30}`;
+  let n3=0,n7=0,n30=0,nk=0;
+  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else if(c.due<=b30)n30++; else nk++; }
+  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30} · 유지(30일+) ${nk}`;
   $('result').classList.add('show');
   $('prog').style.width='100%';
   refreshStats();
+  if(G.hub){ G.hub=false; const rb=$('r-buckets'); if(rb) rb.innerHTML+=' <span style="color:var(--gold)">· 통합 세션 — 다음 도구로 넘어갑니다…</span>'; setTimeout(function(){ try{ window.HubSession&&HubSession.next(); }catch(e){} },1400); }
 }
 
 /* ============== ui glue ============== */
@@ -1817,7 +1835,7 @@ const BANK = [
 
 /* ============== SRS engine ============== */
 const KEY='gyeongnak_history_srs_v1';
-const INT={1:3,2:7,3:30};
+const INT={1:3,2:7,3:14,4:30,5:60,6:120}; const ST_MAX=6; /* 오답→3일, 처음 맞힘→7일, 이후 성공마다 확장 · 졸업 없음 */
 const G={ db:null, queue:[], cur:null, answered:false, mode:'today',
   active:new Set(CATS.map(c=>c.key)),
   sCorrect:0, sWrong:0, sStreak:0, sBest:0, sSeen:0, sTotal:0, sinceMiss:99 };
@@ -1832,6 +1850,8 @@ function loadDB(){
   // prune cards no longer in bank
   const ids=new Set(BANK.map(b=>b.id));
   for(const k of Object.keys(db.cards)) if(!ids.has(k)) delete db.cards[k];
+  // 구버전 '졸업'(due=null) 카드 → 유지 단계로 복귀, 7~30일에 분산
+  for(const k of Object.keys(db.cards)){ const c=db.cards[k]; if(c && !c.due){ let h=0; for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; c.st=Math.max(c.st||1,4); c.due=addDays(today(), 7+(h%24)); } }
   G.db=db;
 }
 function saveDB(){ try{ localStorage.setItem(KEY, JSON.stringify(G.db)); }catch(e){} }
@@ -1854,13 +1874,21 @@ function buildQueue(mode){
   let q;
   if(mode==='review') q=due;
   else if(mode==='practice'){ q=BANK.filter(b=>G.active.has(b.cat)).map(b=>b.id); shuffle(q); }
-  else q=[...due, ...fresh];
+  else {
+    const NEW_CAP=12; // 하루 신규 유입 상한
+    q=[...due, ...fresh.slice(0,NEW_CAP)];
+    if(!q.length){ // 전부 카드화됐고 오늘 기한도 없음 → 기한이 가장 가까운 10장 앞당겨 복습
+      const ahead=BANK.filter(b=>G.active.has(b.cat)&&G.db.cards[b.id]&&G.db.cards[b.id].due)
+        .sort((x,y)=>G.db.cards[x.id].due<G.db.cards[y.id].due?-1:1).slice(0,10).map(b=>b.id);
+      q=shuffle(ahead);
+    }
+  }
   return q;
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ============== flow ============== */
-function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='history'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();return;}nextQ();refreshStats();return;}
+function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='history'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();var _hub=!!window.__focusDrill.hub;window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.hub=_hub;G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();if(_hub){G.hub=false;setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},500);}return;}nextQ();refreshStats();return;}
   G.mode=mode;
   G.queue=buildQueue(mode);
   G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0; G.sinceMiss=99;
@@ -1892,7 +1920,7 @@ function renderQ(b){
   const cm=catMeta(b.cat);
   const cc=getComputedStyle(document.documentElement).getPropertyValue(cm.v).trim();
   const c=G.db.cards[b.id];
-  const stTag = c ? (c.due ? `복습 ${c.st||1}단계` : '졸업') : '신규';
+  const stTag = c ? (((c.st||1)>=4) ? `유지 ${INT[Math.min(c.st||1,ST_MAX)]}일` : `복습 ${c.st||1}단계`) : '신규';
   // build options
   const opts=shuffle([b.a, ...b.d]).slice();
   const letters=['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ'];
@@ -1942,11 +1970,17 @@ function choose(btn){
   let srsMsg='';
   if(correct){
     G.sCorrect++; G.sStreak++; G.sBest=Math.max(G.sBest,G.sStreak); G.sinceMiss++;
-    if(card && card.due){ // reviewing a lapsed card
-      card.st=(card.st||1)+1;
-      if(card.st>=4){ card.due=null; srsMsg='✓ 졸업 — 이제 자동 출제되지 않습니다.'; }
-      else{ card.due=addDays(t, INT[card.st]); srsMsg=`✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`; }
-    } else { srsMsg='✓ 정답.'; }
+    if(!card){ // 처음 맞힘 → 카드 생성, 7일 뒤 확인
+      G.db.cards[b.id]={st:2,due:addDays(t,INT[2]),lapses:0,first:t};
+      srsMsg=`✓ 처음 맞힘 → ${INT[2]}일 뒤 확인.`;
+    } else if(card.due && card.due<=t){ // 예정된 복습 성공 → 간격 확장 (졸업 없음)
+      card.st=Math.min((card.st||1)+1, ST_MAX);
+      card.due=addDays(t, INT[card.st]);
+      srsMsg = card.st>=4 ? `✓ 유지 단계 → ${INT[card.st]}일 뒤 다시.` : `✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`;
+    } else { // 기한 전 조기 정답(연습 등) → 간격 유지
+      if(!card.due){ card.st=Math.max(card.st||1,4); card.due=addDays(t, INT[card.st]); }
+      srsMsg=`✓ 정답 (다음 확인 ${card.due}).`;
+    }
   } else {
     G.sWrong++; G.sStreak=0; G.sinceMiss=0;
     const cc=G.db.cards[b.id]||{lapses:0};
@@ -1983,12 +2017,13 @@ function finish(){
   $('r-correct').textContent=G.sCorrect; $('r-wrong').textContent=G.sWrong; $('r-streak').textContent=G.sBest;
   // due buckets after this session
   const t2=today(); const b3=addDays(t2,3),b7=addDays(t2,7),b30=addDays(t2,30);
-  let n3=0,n7=0,n30=0;
-  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else n30++; }
-  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30}`;
+  let n3=0,n7=0,n30=0,nk=0;
+  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else if(c.due<=b30)n30++; else nk++; }
+  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30} · 유지(30일+) ${nk}`;
   $('result').classList.add('show');
   $('prog').style.width='100%';
   refreshStats();
+  if(G.hub){ G.hub=false; const rb=$('r-buckets'); if(rb) rb.innerHTML+=' <span style="color:var(--gold)">· 통합 세션 — 다음 도구로 넘어갑니다…</span>'; setTimeout(function(){ try{ window.HubSession&&HubSession.next(); }catch(e){} },1400); }
 }
 
 /* ============== ui glue ============== */
@@ -2117,7 +2152,7 @@ const BANK = [
 
 /* ============== SRS engine ============== */
 const KEY='sidong_sosaeng_srs_v1';
-const INT={1:3,2:7,3:30};
+const INT={1:3,2:7,3:14,4:30,5:60,6:120}; const ST_MAX=6; /* 오답→3일, 처음 맞힘→7일, 이후 성공마다 확장 · 졸업 없음 */
 const G={ db:null, queue:[], cur:null, answered:false, mode:'today',
   active:new Set(CATS.map(c=>c.key)),
   sCorrect:0, sWrong:0, sStreak:0, sBest:0, sSeen:0, sTotal:0, sinceMiss:99 };
@@ -2132,6 +2167,8 @@ function loadDB(){
   // prune cards no longer in bank
   const ids=new Set(BANK.map(b=>b.id));
   for(const k of Object.keys(db.cards)) if(!ids.has(k)) delete db.cards[k];
+  // 구버전 '졸업'(due=null) 카드 → 유지 단계로 복귀, 7~30일에 분산
+  for(const k of Object.keys(db.cards)){ const c=db.cards[k]; if(c && !c.due){ let h=0; for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; c.st=Math.max(c.st||1,4); c.due=addDays(today(), 7+(h%24)); } }
   G.db=db;
 }
 function saveDB(){ try{ localStorage.setItem(KEY, JSON.stringify(G.db)); }catch(e){} }
@@ -2154,13 +2191,21 @@ function buildQueue(mode){
   let q;
   if(mode==='review') q=due;
   else if(mode==='practice'){ q=BANK.filter(b=>G.active.has(b.cat)).map(b=>b.id); shuffle(q); }
-  else q=[...due, ...fresh];
+  else {
+    const NEW_CAP=12; // 하루 신규 유입 상한
+    q=[...due, ...fresh.slice(0,NEW_CAP)];
+    if(!q.length){ // 전부 카드화됐고 오늘 기한도 없음 → 기한이 가장 가까운 10장 앞당겨 복습
+      const ahead=BANK.filter(b=>G.active.has(b.cat)&&G.db.cards[b.id]&&G.db.cards[b.id].due)
+        .sort((x,y)=>G.db.cards[x.id].due<G.db.cards[y.id].due?-1:1).slice(0,10).map(b=>b.id);
+      q=shuffle(ahead);
+    }
+  }
   return q;
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ============== flow ============== */
-function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='sidong'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();return;}nextQ();refreshStats();return;}
+function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='sidong'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();var _hub=!!window.__focusDrill.hub;window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.hub=_hub;G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();if(_hub){G.hub=false;setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},500);}return;}nextQ();refreshStats();return;}
   G.mode=mode;
   G.queue=buildQueue(mode);
   G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0; G.sinceMiss=99;
@@ -2192,7 +2237,7 @@ function renderQ(b){
   const cm=catMeta(b.cat);
   const cc=getComputedStyle(document.documentElement).getPropertyValue(cm.v).trim();
   const c=G.db.cards[b.id];
-  const stTag = c ? (c.due ? `복습 ${c.st||1}단계` : '졸업') : '신규';
+  const stTag = c ? (((c.st||1)>=4) ? `유지 ${INT[Math.min(c.st||1,ST_MAX)]}일` : `복습 ${c.st||1}단계`) : '신규';
   // build options
   const opts=shuffle([b.a, ...b.d]).slice();
   const letters=['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ'];
@@ -2242,11 +2287,17 @@ function choose(btn){
   let srsMsg='';
   if(correct){
     G.sCorrect++; G.sStreak++; G.sBest=Math.max(G.sBest,G.sStreak); G.sinceMiss++;
-    if(card && card.due){ // reviewing a lapsed card
-      card.st=(card.st||1)+1;
-      if(card.st>=4){ card.due=null; srsMsg='✓ 졸업 — 이제 자동 출제되지 않습니다.'; }
-      else{ card.due=addDays(t, INT[card.st]); srsMsg=`✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`; }
-    } else { srsMsg='✓ 정답.'; }
+    if(!card){ // 처음 맞힘 → 카드 생성, 7일 뒤 확인
+      G.db.cards[b.id]={st:2,due:addDays(t,INT[2]),lapses:0,first:t};
+      srsMsg=`✓ 처음 맞힘 → ${INT[2]}일 뒤 확인.`;
+    } else if(card.due && card.due<=t){ // 예정된 복습 성공 → 간격 확장 (졸업 없음)
+      card.st=Math.min((card.st||1)+1, ST_MAX);
+      card.due=addDays(t, INT[card.st]);
+      srsMsg = card.st>=4 ? `✓ 유지 단계 → ${INT[card.st]}일 뒤 다시.` : `✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`;
+    } else { // 기한 전 조기 정답(연습 등) → 간격 유지
+      if(!card.due){ card.st=Math.max(card.st||1,4); card.due=addDays(t, INT[card.st]); }
+      srsMsg=`✓ 정답 (다음 확인 ${card.due}).`;
+    }
   } else {
     G.sWrong++; G.sStreak=0; G.sinceMiss=0;
     const cc=G.db.cards[b.id]||{lapses:0};
@@ -2283,12 +2334,13 @@ function finish(){
   $('r-correct').textContent=G.sCorrect; $('r-wrong').textContent=G.sWrong; $('r-streak').textContent=G.sBest;
   // due buckets after this session
   const t2=today(); const b3=addDays(t2,3),b7=addDays(t2,7),b30=addDays(t2,30);
-  let n3=0,n7=0,n30=0;
-  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else n30++; }
-  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30}`;
+  let n3=0,n7=0,n30=0,nk=0;
+  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else if(c.due<=b30)n30++; else nk++; }
+  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30} · 유지(30일+) ${nk}`;
   $('result').classList.add('show');
   $('prog').style.width='100%';
   refreshStats();
+  if(G.hub){ G.hub=false; const rb=$('r-buckets'); if(rb) rb.innerHTML+=' <span style="color:var(--gold)">· 통합 세션 — 다음 도구로 넘어갑니다…</span>'; setTimeout(function(){ try{ window.HubSession&&HubSession.next(); }catch(e){} },1400); }
 }
 
 /* ============== ui glue ============== */
@@ -3144,7 +3196,7 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
   const SKEY='hub_stats_v1';
   function _sk(){ try{const o=JSON.parse(localStorage.getItem(SKEY))||{};o.q=o.q||{};return o;}catch(e){return {q:{}};} }
   function _skSave(o){ try{localStorage.setItem(SKEY,JSON.stringify(o));}catch(e){} }
-  window.HubStats={ record:function(tool,card,correct){ try{ if(!tool||!card||card.id==null)return; const o=_sk(); const k=tool+'::'+card.id; const e=o.q[k]||{tool:tool,id:card.id,seen:0,wrong:0}; e.seen++; if(!correct)e.wrong++; if(card.q!=null)e.q=String(card.q).slice(0,240); if(card.cat!=null)e.cat=String(card.cat).slice(0,80); if(card.kind!=null)e.kind=String(card.kind).slice(0,48); if(card.a!=null)e.a=String(card.a).slice(0,160); e.last=_tkToday(); if(!correct)e.lastWrong=_tkToday(); o.q[k]=e; _skSave(o); }catch(err){} }, get:function(){ return _sk(); } };
+  window.HubStats={ record:function(tool,card,correct){ try{ if(!tool||!card||card.id==null)return; const o=_sk(); const k=tool+'::'+card.id; const e=o.q[k]||{tool:tool,id:card.id,seen:0,wrong:0}; e.seen++; if(!correct)e.wrong++; if(card.q!=null)e.q=String(card.q).slice(0,240); if(card.cat!=null)e.cat=String(card.cat).slice(0,80); if(card.kind!=null)e.kind=String(card.kind).slice(0,48); if(card.a!=null)e.a=String(card.a).slice(0,160); e.last=_tkToday(); if(!correct)e.lastWrong=_tkToday(); e.h=(e.h||[]).concat([[_tkToday(),correct?1:0]]).slice(-10); o.q[k]=e; _skSave(o); }catch(err){} }, get:function(){ return _sk(); } };
   function inject(text, where){ const s=document.createElement('script'); s.textContent=text; (where||mount).appendChild(s); }
   function captureOn(){
     recs=[]; const oD=document.addEventListener, oW=window.addEventListener;
@@ -3197,7 +3249,27 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
     loader.classList.add('hidden');
     window.scrollTo(0,0);
   }
-  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>activate(t.dataset.id));
+
+  /* ===== ② 통합 오늘 세션: 전 도구의 복습 대기 문항을 라운드로빈 청크로 섞어 순서대로 진행 ===== */
+  window.HubSession={
+    st:null,
+    start:function(plan){ this.st={plan:plan||[],i:0,items:(plan||[]).reduce(function(n,c){return n+c.ids.length;},0),t0:Date.now()}; this.next(); },
+    active:function(){ return !!(this.st&&this.st.i<this.st.plan.length); },
+    cancel:function(){ this.st=null; window.__focusDrill=null; if(hint) hint.textContent=HINTS[ACTIVE]||''; },
+    next:function(){
+      var S=this.st; if(!S) return;
+      if(S.i>=S.plan.length){ this.st=null; var mins=Math.max(1,Math.round((Date.now()-S.t0)/60000)); try{ localStorage.setItem('hub_session_last', JSON.stringify({day:_tkToday(),items:S.items,chunks:S.plan.length,mins:mins})); }catch(e){} activate('home'); return; }
+      var c=S.plan[S.i]; S.i++;
+      window.__focusDrill={tool:c.tool,ids:c.ids.slice(),hub:true};
+      var label=(TOOL_LABEL[c.tool]||c.tool);
+      var self=this;
+      var go=function(){ if(hint) hint.textContent='통합 세션 '+S.i+'/'+S.plan.length+' · '+label+' '+c.ids.length+'문항'; };
+      if(ACTIVE===c.tool){ ACTIVE=null; } /* 같은 도구가 연속되면 재마운트해 focusDrill을 소비시킴 */
+      Promise.resolve(activate(c.tool)).then(go,go);
+    }
+  };
+  var TOOL_LABEL={acu:'경혈 퀴즈',func:'기능 퀴즈',history:'발전사',sidong:'시동·소생',baesurule:'배수혈 추론',saamquiz:'사암 보사'};
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ try{ if(window.HubSession&&HubSession.active()) HubSession.cancel(); }catch(e){} activate(t.dataset.id); });
   window.__activate=activate;
   /* ===== 전역 스페이스→다음 (플래시카드/문제 게임 통일) ===== */
   (function(){
@@ -3538,7 +3610,7 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
 <div class="wrap">
   <div class="kicker">背兪穴·交會穴 · 規則 推論 · SRS QUIZ</div>
   <h1>배수혈 규칙 추론<span class="ko">骨度 랜드마크 · 마디 · 八會 · 兪募 · 交會</span></h1>
-  <p class="lede">배수혈을 통째 외우지 않고 <b>랜드마크·규칙</b>으로 추론합니다. 견갑골 하각=T7, 야코비선=L4, 膈兪=血會, 前募後兪, 大椎=諸陽之會처럼 <b>다른 특정혈과 엮어</b> 5지선다로 익힙니다. 틀린 문제는 <b>3일→7일→30일</b> 간격으로 복습됩니다.</p>
+  <p class="lede">배수혈을 통째 외우지 않고 <b>랜드마크·규칙</b>으로 추론합니다. 견갑골 하각=T7, 야코비선=L4, 膈兪=血會, 前募後兪, 大椎=諸陽之會처럼 <b>다른 특정혈과 엮어</b> 5지선다로 익힙니다. 처음 맞힌 문제는 7일 뒤, 틀린 문제는 3일 뒤 다시 나오고, 맞힐수록 <b>7→14→30→60→120일</b>로 간격이 늘어납니다(졸업 없음).</p>
 
   <div class="cats" id="cats"></div>
 
@@ -3995,7 +4067,7 @@ const BANK = [
 
 /* ============== SRS engine ============== */
 const KEY='baesu_rule_srs_v1';
-const INT={1:3,2:7,3:30};
+const INT={1:3,2:7,3:14,4:30,5:60,6:120}; const ST_MAX=6; /* 오답→3일, 처음 맞힘→7일, 이후 성공마다 확장 · 졸업 없음 */
 const G={ db:null, queue:[], cur:null, answered:false, mode:'today',
   active:new Set(CATS.map(c=>c.key)),
   sCorrect:0, sWrong:0, sStreak:0, sBest:0, sSeen:0, sTotal:0, sinceMiss:99 };
@@ -4010,6 +4082,8 @@ function loadDB(){
   // prune cards no longer in bank
   const ids=new Set(BANK.map(b=>b.id));
   for(const k of Object.keys(db.cards)) if(!ids.has(k)) delete db.cards[k];
+  // 구버전 '졸업'(due=null) 카드 → 유지 단계로 복귀, 7~30일에 분산
+  for(const k of Object.keys(db.cards)){ const c=db.cards[k]; if(c && !c.due){ let h=0; for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; c.st=Math.max(c.st||1,4); c.due=addDays(today(), 7+(h%24)); } }
   G.db=db;
 }
 function saveDB(){ try{ localStorage.setItem(KEY, JSON.stringify(G.db)); }catch(e){} }
@@ -4032,13 +4106,21 @@ function buildQueue(mode){
   let q;
   if(mode==='review') q=due;
   else if(mode==='practice'){ q=BANK.filter(b=>G.active.has(b.cat)).map(b=>b.id); shuffle(q); }
-  else q=[...due, ...fresh];
+  else {
+    const NEW_CAP=12; // 하루 신규 유입 상한
+    q=[...due, ...fresh.slice(0,NEW_CAP)];
+    if(!q.length){ // 전부 카드화됐고 오늘 기한도 없음 → 기한이 가장 가까운 10장 앞당겨 복습
+      const ahead=BANK.filter(b=>G.active.has(b.cat)&&G.db.cards[b.id]&&G.db.cards[b.id].due)
+        .sort((x,y)=>G.db.cards[x.id].due<G.db.cards[y.id].due?-1:1).slice(0,10).map(b=>b.id);
+      q=shuffle(ahead);
+    }
+  }
   return q;
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ============== flow ============== */
-function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='baesurule'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();return;}nextQ();refreshStats();return;}
+function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='baesurule'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();var _hub=!!window.__focusDrill.hub;window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.hub=_hub;G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();if(_hub){G.hub=false;setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},500);}return;}nextQ();refreshStats();return;}
   G.mode=mode;
   G.queue=buildQueue(mode);
   G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0; G.sinceMiss=99;
@@ -4070,7 +4152,7 @@ function renderQ(b){
   const cm=catMeta(b.cat);
   const cc=getComputedStyle(document.documentElement).getPropertyValue(cm.v).trim();
   const c=G.db.cards[b.id];
-  const stTag = c ? (c.due ? `복습 ${c.st||1}단계` : '졸업') : '신규';
+  const stTag = c ? (((c.st||1)>=4) ? `유지 ${INT[Math.min(c.st||1,ST_MAX)]}일` : `복습 ${c.st||1}단계`) : '신규';
   // build options
   const opts=shuffle([b.a, ...b.d]).slice();
   const letters=['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ'];
@@ -4120,11 +4202,17 @@ function choose(btn){
   let srsMsg='';
   if(correct){
     G.sCorrect++; G.sStreak++; G.sBest=Math.max(G.sBest,G.sStreak); G.sinceMiss++;
-    if(card && card.due){ // reviewing a lapsed card
-      card.st=(card.st||1)+1;
-      if(card.st>=4){ card.due=null; srsMsg='✓ 졸업 — 이제 자동 출제되지 않습니다.'; }
-      else{ card.due=addDays(t, INT[card.st]); srsMsg=`✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`; }
-    } else { srsMsg='✓ 정답.'; }
+    if(!card){ // 처음 맞힘 → 카드 생성, 7일 뒤 확인
+      G.db.cards[b.id]={st:2,due:addDays(t,INT[2]),lapses:0,first:t};
+      srsMsg=`✓ 처음 맞힘 → ${INT[2]}일 뒤 확인.`;
+    } else if(card.due && card.due<=t){ // 예정된 복습 성공 → 간격 확장 (졸업 없음)
+      card.st=Math.min((card.st||1)+1, ST_MAX);
+      card.due=addDays(t, INT[card.st]);
+      srsMsg = card.st>=4 ? `✓ 유지 단계 → ${INT[card.st]}일 뒤 다시.` : `✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`;
+    } else { // 기한 전 조기 정답(연습 등) → 간격 유지
+      if(!card.due){ card.st=Math.max(card.st||1,4); card.due=addDays(t, INT[card.st]); }
+      srsMsg=`✓ 정답 (다음 확인 ${card.due}).`;
+    }
   } else {
     G.sWrong++; G.sStreak=0; G.sinceMiss=0;
     const cc=G.db.cards[b.id]||{lapses:0};
@@ -4161,12 +4249,13 @@ function finish(){
   $('r-correct').textContent=G.sCorrect; $('r-wrong').textContent=G.sWrong; $('r-streak').textContent=G.sBest;
   // due buckets after this session
   const t2=today(); const b3=addDays(t2,3),b7=addDays(t2,7),b30=addDays(t2,30);
-  let n3=0,n7=0,n30=0;
-  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else n30++; }
-  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30}`;
+  let n3=0,n7=0,n30=0,nk=0;
+  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else if(c.due<=b30)n30++; else nk++; }
+  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30} · 유지(30일+) ${nk}`;
   $('result').classList.add('show');
   $('prog').style.width='100%';
   refreshStats();
+  if(G.hub){ G.hub=false; const rb=$('r-buckets'); if(rb) rb.innerHTML+=' <span style="color:var(--gold)">· 통합 세션 — 다음 도구로 넘어갑니다…</span>'; setTimeout(function(){ try{ window.HubSession&&HubSession.next(); }catch(e){} },1400); }
 }
 
 /* ============== ui glue ============== */
@@ -6320,7 +6409,7 @@ newRound();
 <div class="wrap">
   <div class="kicker">舍岩鍼法 補瀉法 4법 · SRS QUIZ</div>
   <h1>사암 보사 퀴즈<span class="ko">舍岩 補瀉法 · 正/勝/自經/主客/寒熱</span></h1>
-  <p class="lede">舍岩鍼法 <b>4법</b>(自經·正格·勝格·主客·寒熱)의 혈 구성과 五行 원리를 5지선다로 익힙니다. 틀린 문제는 <b>3일→7일→30일</b> 간격으로 복습됩니다.</p>
+  <p class="lede">舍岩鍼法 <b>4법</b>(自經·正格·勝格·主客·寒熱)의 혈 구성과 五行 원리를 5지선다로 익힙니다. 처음 맞힌 문제는 7일 뒤, 틀린 문제는 3일 뒤 다시 나오고, 맞힐수록 <b>7→14→30→60→120일</b>로 간격이 늘어납니다(졸업 없음).</p>
 
   <div class="cats" id="cats"></div>
 
@@ -6446,7 +6535,7 @@ const BANK = [
 
 /* ============== SRS engine ============== */
 const KEY='saam_bosa_srs_v1';
-const INT={1:3,2:7,3:30};
+const INT={1:3,2:7,3:14,4:30,5:60,6:120}; const ST_MAX=6; /* 오답→3일, 처음 맞힘→7일, 이후 성공마다 확장 · 졸업 없음 */
 const G={ db:null, queue:[], cur:null, answered:false, mode:'today',
   active:new Set(CATS.map(c=>c.key)),
   sCorrect:0, sWrong:0, sStreak:0, sBest:0, sSeen:0, sTotal:0, sinceMiss:99 };
@@ -6461,6 +6550,8 @@ function loadDB(){
   // prune cards no longer in bank
   const ids=new Set(BANK.map(b=>b.id));
   for(const k of Object.keys(db.cards)) if(!ids.has(k)) delete db.cards[k];
+  // 구버전 '졸업'(due=null) 카드 → 유지 단계로 복귀, 7~30일에 분산
+  for(const k of Object.keys(db.cards)){ const c=db.cards[k]; if(c && !c.due){ let h=0; for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; c.st=Math.max(c.st||1,4); c.due=addDays(today(), 7+(h%24)); } }
   G.db=db;
 }
 function saveDB(){ try{ localStorage.setItem(KEY, JSON.stringify(G.db)); }catch(e){} }
@@ -6483,13 +6574,21 @@ function buildQueue(mode){
   let q;
   if(mode==='review') q=due;
   else if(mode==='practice'){ q=BANK.filter(b=>G.active.has(b.cat)).map(b=>b.id); shuffle(q); }
-  else q=[...due, ...fresh];
+  else {
+    const NEW_CAP=12; // 하루 신규 유입 상한
+    q=[...due, ...fresh.slice(0,NEW_CAP)];
+    if(!q.length){ // 전부 카드화됐고 오늘 기한도 없음 → 기한이 가장 가까운 10장 앞당겨 복습
+      const ahead=BANK.filter(b=>G.active.has(b.cat)&&G.db.cards[b.id]&&G.db.cards[b.id].due)
+        .sort((x,y)=>G.db.cards[x.id].due<G.db.cards[y.id].due?-1:1).slice(0,10).map(b=>b.id);
+      q=shuffle(ahead);
+    }
+  }
   return q;
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 /* ============== flow ============== */
-function start(mode){
+function start(mode){if(window.__focusDrill&&window.__focusDrill.tool==='saamquiz'&&window.__focusDrill.ids&&window.__focusDrill.ids.length){var _fd=window.__focusDrill.ids.slice();var _hub=!!window.__focusDrill.hub;window.__focusDrill=null;var _ex=new Set(BANK.map(function(x){return x.id;}));G.mode='review';G.hub=_hub;G.queue=_fd.filter(function(id){return _ex.has(id);});shuffle(G.queue);G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0;G.sinceMiss=99;G.sTotal=G.queue.length;if($('result'))$('result').classList.remove('show');if(!G.queue.length){if($('stage'))$('stage').innerHTML='<div class="card"><div class="q" style="font-size:18px">복습할 문항이 없습니다.</div></div>';refreshStats();if(_hub){G.hub=false;setTimeout(function(){try{window.HubSession&&HubSession.next();}catch(e){}},500);}return;}nextQ();refreshStats();return;}
   G.mode=mode;
   G.queue=buildQueue(mode);
   G.sCorrect=G.sWrong=G.sStreak=G.sBest=G.sSeen=0; G.sinceMiss=99;
@@ -6521,7 +6620,7 @@ function renderQ(b){
   const cm=catMeta(b.cat);
   const cc=getComputedStyle(document.documentElement).getPropertyValue(cm.v).trim();
   const c=G.db.cards[b.id];
-  const stTag = c ? (c.due ? `복습 ${c.st||1}단계` : '졸업') : '신규';
+  const stTag = c ? (((c.st||1)>=4) ? `유지 ${INT[Math.min(c.st||1,ST_MAX)]}일` : `복습 ${c.st||1}단계`) : '신규';
   // build options
   const opts=shuffle([b.a, ...b.d]).slice();
   const letters=['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ'];
@@ -6571,11 +6670,17 @@ function choose(btn){
   let srsMsg='';
   if(correct){
     G.sCorrect++; G.sStreak++; G.sBest=Math.max(G.sBest,G.sStreak); G.sinceMiss++;
-    if(card && card.due){ // reviewing a lapsed card
-      card.st=(card.st||1)+1;
-      if(card.st>=4){ card.due=null; srsMsg='✓ 졸업 — 이제 자동 출제되지 않습니다.'; }
-      else{ card.due=addDays(t, INT[card.st]); srsMsg=`✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`; }
-    } else { srsMsg='✓ 정답.'; }
+    if(!card){ // 처음 맞힘 → 카드 생성, 7일 뒤 확인
+      G.db.cards[b.id]={st:2,due:addDays(t,INT[2]),lapses:0,first:t};
+      srsMsg=`✓ 처음 맞힘 → ${INT[2]}일 뒤 확인.`;
+    } else if(card.due && card.due<=t){ // 예정된 복습 성공 → 간격 확장 (졸업 없음)
+      card.st=Math.min((card.st||1)+1, ST_MAX);
+      card.due=addDays(t, INT[card.st]);
+      srsMsg = card.st>=4 ? `✓ 유지 단계 → ${INT[card.st]}일 뒤 다시.` : `✓ 복습 성공 → ${INT[card.st]}일 뒤 다시.`;
+    } else { // 기한 전 조기 정답(연습 등) → 간격 유지
+      if(!card.due){ card.st=Math.max(card.st||1,4); card.due=addDays(t, INT[card.st]); }
+      srsMsg=`✓ 정답 (다음 확인 ${card.due}).`;
+    }
   } else {
     G.sWrong++; G.sStreak=0; G.sinceMiss=0;
     const cc=G.db.cards[b.id]||{lapses:0};
@@ -6612,12 +6717,13 @@ function finish(){
   $('r-correct').textContent=G.sCorrect; $('r-wrong').textContent=G.sWrong; $('r-streak').textContent=G.sBest;
   // due buckets after this session
   const t2=today(); const b3=addDays(t2,3),b7=addDays(t2,7),b30=addDays(t2,30);
-  let n3=0,n7=0,n30=0;
-  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else n30++; }
-  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30}`;
+  let n3=0,n7=0,n30=0,nk=0;
+  for(const b of BANK){ const c=G.db.cards[b.id]; if(!c||!c.due) continue; if(c.due<=b3)n3++; else if(c.due<=b7)n7++; else if(c.due<=b30)n30++; else nk++; }
+  $('r-buckets').innerHTML = `예정 복습 — <b style="color:var(--el)">3일 내 ${n3}</b> · 7일 내 ${n7} · 한 달 내 ${n30} · 유지(30일+) ${nk}`;
   $('result').classList.add('show');
   $('prog').style.width='100%';
   refreshStats();
+  if(G.hub){ G.hub=false; const rb=$('r-buckets'); if(rb) rb.innerHTML+=' <span style="color:var(--gold)">· 통합 세션 — 다음 도구로 넘어갑니다…</span>'; setTimeout(function(){ try{ window.HubSession&&HubSession.next(); }catch(e){} },1400); }
 }
 
 /* ============== ui glue ============== */
@@ -6675,6 +6781,7 @@ function init(){
 }
 init();
 
+try{if(window.__focusDrill&&window.__focusDrill.tool==='saamquiz'){start('review');}}catch(e){}
 })();</script>
 
 
@@ -7309,6 +7416,7 @@ buildChips();
     <div class="hm-heat-legend">적음 <span class="hm-cell lv0"></span><span class="hm-cell lv1"></span><span class="hm-cell lv2"></span><span class="hm-cell lv3"></span> 많음</div>
   </div>
 
+  <div id="hm-session"></div>
   <div id="hm-resume"></div>
   <div id="hm-weak"></div>
   <div id="hm-tools"></div>
@@ -7484,15 +7592,55 @@ function render(){
   $('hm-tools').innerHTML=html;
   document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',e=>{ e.stopPropagation(); go(el.dataset.go); }));
 }
+
+// ---------- ② 통합 오늘 세션 ----------
+function dueIdsOf(key){ const o=readJSON(key); const td=today(); const out=[]; if(!o||!o.cards) return out; for(const id in o.cards){ const c=o.cards[id]; if(c&&c.due&&c.due<=td) out.push(id); } return out; }
+function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function buildSessionPlan(cap){
+  const CHUNK=4; const pools=[];
+  SRS.forEach(s=>{ const ids=shuffleArr(dueIdsOf(s.key)); if(ids.length) pools.push({tool:s.id,ids}); });
+  shuffleArr(pools);
+  const plan=[]; let n=0; let any=true;
+  while(any && n<cap){ any=false;
+    for(const p of pools){ if(!p.ids.length) continue; any=true; const take=p.ids.splice(0,Math.min(CHUNK,cap-n)); if(take.length){ plan.push({tool:p.tool,ids:take}); n+=take.length; } if(n>=cap) break; }
+  }
+  return plan;
+}
+function renderSession(){
+  const host=$('hm-session'); if(!host) return;
+  let total=0; const per=[]; SRS.forEach(s=>{ const k=dueIdsOf(s.key).length; if(k){ total+=k; per.push(toolLabel(s.id)+' '+k); } });
+  let last=null; try{ last=JSON.parse(localStorage.getItem('hub_session_last')); }catch(e){}
+  const lastTxt=(last&&last.day===today())?('오늘 완료: '+last.items+'문항 · '+last.chunks+'묶음 · 약 '+last.mins+'분'):'';
+  if(!total){
+    host.innerHTML='<div class="hm-resume"><div><div class="rl1">오늘 통합 세션</div><div class="rl2">복습 대기 없음'+(lastTxt?(' · <span style="color:var(--mut)">'+lastTxt+'</span>'):'')+' — 각 도구에서 새 문항을 풀면 7일 뒤부터 섞여 나옵니다</div></div></div>';
+    return;
+  }
+  const cap=Math.min(40,total);
+  host.innerHTML='<div class="hm-resume"><div><div class="rl1">오늘 통합 세션 · 교차 복습</div><div class="rl2"><b>'+cap+'문항</b>'+(total>cap?(' / 대기 '+total):'')+' · '+per.join(' · ')+(lastTxt?(' <span style="color:var(--mut)">· '+lastTxt+'</span>'):'')+'</div><div style="font-size:12px;color:var(--faint);margin-top:4px">도구를 4문항씩 번갈아 섞어 출제합니다. 탭을 직접 누르면 세션이 중단됩니다.</div></div><button class="hm-open" id="hm-session-go">시작 ▶</button></div>';
+  const btn=$('hm-session-go'); if(btn) btn.addEventListener('click',()=>{ const plan=buildSessionPlan(cap); if(!plan.length) return; try{ window.HubSession&&HubSession.start(plan); }catch(e){} });
+}
 render();
 renderWeak();
+renderSession();
 
 // ---------- 통계 내보내기 ----------
 function readStats(){ try{ if(window.HubStats&&HubStats.get) return HubStats.get(); }catch(e){} return readJSON('hub_stats_v1')||{q:{}}; }
+function daysAgo(d){ if(!d) return 999; const a=new Date(d+'T00:00:00'), b=new Date(today()+'T00:00:00'); return Math.max(0,Math.round((b-a)/86400000)); }
+function weakScore(e){ // 최근 2주 가중: 오답 하나의 무게 = 0.5^(경과일/14)
+  const HALF_LIFE=14;
+  const h=Array.isArray(e.h)?e.h:null;
+  if(h&&h.length){ let sc=0; h.forEach(([d,ok])=>{ if(!ok) sc+=Math.pow(0.5, daysAgo(d)/HALF_LIFE); }); return sc; }
+  return (e.wrong||0)*Math.pow(0.5, daysAgo(e.lastWrong||e.last)/HALF_LIFE);
+}
+function weakResolved(e){ // 최근 3회 연속 정답이면 약점 해제
+  const h=Array.isArray(e.h)?e.h:null; if(!h||h.length<3) return false;
+  return h.slice(-3).every(x=>x[1]===1);
+}
+function recentStr(e){ const h=Array.isArray(e.h)?e.h:[]; return h.slice(-6).map(x=>x[1]?'○':'✕').join(''); }
 function weakList(stats){
   const arr=Object.values((stats&&stats.q)||{}).map(e=>Object.assign({},e));
-  arr.forEach(e=>{ e.wrongRate=e.seen?Math.round(e.wrong/e.seen*100):0; });
-  arr.sort((a,b)=> (b.wrong-a.wrong) || (b.wrongRate-a.wrongRate) || (b.seen-a.seen));
+  arr.forEach(e=>{ e.wrongRate=e.seen?Math.round(e.wrong/e.seen*100):0; e.score=weakScore(e); e.resolved=weakResolved(e); e.recent=recentStr(e); });
+  arr.sort((a,b)=> (b.score-a.score) || (b.wrong-a.wrong) || (b.wrongRate-a.wrongRate) || (b.seen-a.seen));
   return arr;
 }
 function toolLabel(id){ const t=TOOLS.find(x=>x.id===id); return t?t.label:id; }
@@ -7533,10 +7681,10 @@ function buildExport(includeRaw){
   const ws=weakList(stats);
   const exp={
     meta:{app:'경락 학습 허브 (한의학개론 경락)',exportedAt:new Date().toISOString(),today:today(),schema:1,
-          note:'weakSpots = 문항별 오답(문제 정보 포함). lastWrong/seen/wrong 기준 정렬. raw에 전체 원본.'},
+          note:'weakSpots = 문항별 오답(문제 정보 포함). recentScore(최근 2주 가중 오답 점수) 기준 정렬; resolved=최근 3회 연속 정답. raw에 전체 원본.'},
     summary:summaryObj(stats),
     tools:toolsExport(),
-    weakSpots:ws.filter(e=>e.wrong>0).map(e=>({tool:e.tool,toolLabel:toolLabel(e.tool),id:e.id,question:(e.q||null),category:(e.cat||e.kind||null),answer:(e.a||null),seen:e.seen,wrong:e.wrong,wrongRate:e.wrongRate,lastWrong:(e.lastWrong||null)})),
+    weakSpots:ws.filter(e=>e.wrong>0).map(e=>({tool:e.tool,toolLabel:toolLabel(e.tool),id:e.id,question:(e.q||null),category:(e.cat||e.kind||null),answer:(e.a||null),seen:e.seen,wrong:e.wrong,wrongRate:e.wrongRate,lastWrong:(e.lastWrong||null),recentScore:Math.round(e.score*100)/100,recent:(e.recent||null),resolved:!!e.resolved})),
     reviewQueue:lapsedList(),
     dailyActivity:dailyMerged()
   };
@@ -7596,30 +7744,32 @@ function refreshExport(){
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ---------- 약점 분석 (Feature 1·2) ----------
-function weakAll(){ return weakList(readStats()).filter(e=>e.wrong>0); }
+function weakAll(){ return weakList(readStats()).filter(e=>e.wrong>0 && !e.resolved && e.score>=0.1); }
+function resolvedCount(){ return weakList(readStats()).filter(e=>e.wrong>0 && e.resolved).length; }
 function weakByToolMap(){ const m={}; weakAll().forEach(e=>{ (m[e.tool]=m[e.tool]||[]).push(e); }); return m; }
 function catAgg(){
   const m={};
-  weakList(readStats()).forEach(e=>{ const cat=e.cat||e.kind||'기타'; const k=e.tool+'/'+cat; const o=m[k]||{tool:e.tool,cat:cat,seen:0,wrong:0}; o.seen+=e.seen; o.wrong+=e.wrong; m[k]=o; });
+  weakList(readStats()).forEach(e=>{ const cat=e.cat||e.kind||'기타'; const k=e.tool+'/'+cat; const o=m[k]||{tool:e.tool,cat:cat,seen:0,wrong:0,score:0,open:0}; o.seen+=e.seen; o.wrong+=e.wrong; if(!e.resolved){ o.score+=e.score; if(e.wrong>0) o.open++; } m[k]=o; });
   return Object.values(m).map(o=>{o.wrongRate=o.seen?Math.round(o.wrong/o.seen*100):0;return o;})
-    .filter(o=>o.seen>=2&&o.wrong>0).sort((a,b)=> (b.wrongRate-a.wrongRate)||(b.wrong-a.wrong));
+    .filter(o=>o.seen>=2&&o.open>0&&o.score>=0.1).sort((a,b)=> (b.score-a.score)||(b.wrongRate-a.wrongRate)||(b.wrong-a.wrong));
 }
 function renderWeak(){
   const host=$('hm-weak'); if(!host) return;
   const wbt=weakByToolMap(); const tools=Object.keys(wbt); const cats=catAgg();
   if(!tools.length){ host.innerHTML=''; return; }
-  let html='<div class="hm-sec"><div class="hm-sec-h">약점 분석 <span>오답 문항 기준</span></div>';
+  const _res=resolvedCount();
+  let html='<div class="hm-sec"><div class="hm-sec-h">약점 분석 <span>최근 2주 가중 · 연속 3회 정답이면 해제'+(_res?(' · 해제됨 '+_res):'')+'</span></div>';
   if(cats.length){
     html+='<div class="hm-catbox">';
     cats.slice(0,6).forEach(c=>{ const lab=escapeHtml(toolLabel(c.tool)+' · '+c.cat);
-      html+='<div class="hm-catrow"><div class="hm-catlab" title="'+lab+'">'+lab+'</div><div class="hm-catbar"><i style="width:'+c.wrongRate+'%"></i></div><div class="hm-catval">'+c.wrongRate+'% ('+c.wrong+'/'+c.seen+')</div></div>';
+      html+='<div class="hm-catrow"><div class="hm-catlab" title="'+lab+'">'+lab+'</div><div class="hm-catbar"><i style="width:'+c.wrongRate+'%"></i></div><div class="hm-catval">'+c.wrongRate+'% ('+c.wrong+'/'+c.seen+') · 미해결 '+c.open+'</div></div>';
     });
     html+='</div>';
   }
   html+='<div class="hm-cards">';
   tools.forEach(t=>{ const arr=wbt[t];
     html+='<div class="hm-card"><div class="hm-card-top"><span class="hm-clabel">'+escapeHtml(toolLabel(t))+'</span><span class="hm-pill">오답 '+arr.length+'</span></div>'+
-      '<div class="hm-cdesc">방금 틀린 '+arr.length+'문항만 모아 바로 다시 풀기</div>'+
+      '<div class="hm-cdesc">최근 틀린 '+arr.length+'문항(미해결)만 모아 바로 다시 풀기</div>'+
       '<button class="hm-open2" data-drill="'+t+'">복습 시작 ▶</button></div>';
   });
   html+='</div>';
@@ -7640,7 +7790,7 @@ function renderNote(){
   const arr=weakAll().slice(0,80);
   let h='<div class="hm-note-list">';
   arr.forEach((e,i)=>{
-    h+='<div class="hm-note-item"><div class="hm-note-q"><b>'+escapeHtml(toolLabel(e.tool))+'</b> · 틀림 '+e.wrong+'/'+e.seen+'<br>'+(e.q?escapeHtml(e.q):escapeHtml(e.id))+'</div>'+
+    h+='<div class="hm-note-item"><div class="hm-note-q"><b>'+escapeHtml(toolLabel(e.tool))+'</b> · 틀림 '+e.wrong+'/'+e.seen+(e.recent?(' · 최근 '+e.recent):'')+'<br>'+(e.q?escapeHtml(e.q):escapeHtml(e.id))+'</div>'+
       '<button class="hm-note-rev" data-rev="'+i+'">정답</button>'+
       '<div class="hm-note-a" id="hm-na-'+i+'" style="display:none">'+(e.a?escapeHtml(e.a):'(정답 정보 없음)')+'</div></div>';
   });
