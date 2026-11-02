@@ -1,0 +1,151 @@
+/* Exam mode: all study UI styles are scoped; legacy games keep their own CSS. */
+#tabbar{flex-wrap:wrap;overflow:visible;padding:12px max(16px,calc((100vw - 1160px)/2));gap:8px;background:#15130f;border-bottom:1px solid #38342a;box-shadow:none}
+#tabbar .brand{display:block;text-align:left;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:17px;line-height:1.3;letter-spacing:-.02em;margin:0 auto 0 0;color:#e4d5ac}
+#tabbar .brand small{font-size:10px;letter-spacing:.18em;line-height:1.7;color:#a79d88}
+#tabbar .tab,#hub-tools-toggle{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:13px;line-height:1.5;padding:8px 13px;border-radius:8px;white-space:nowrap;cursor:pointer}
+#hub-tools-toggle{background:#25221a;border:1px solid #494234;color:#e8e0cf}
+#hub-hint{flex-basis:100%;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#bdb4a3;font-size:12px;white-space:normal;padding-top:2px;line-height:1.5}
+#hub-tool-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));flex-basis:100%;gap:7px;padding:12px 0 2px}
+#hub-tool-list[hidden]{display:none!important}
+#hub-tool-list .tab{text-align:left;border-radius:7px;white-space:normal;min-height:40px}
+#mount[data-tab="home"]{zoom:1!important;background:#11110e;min-height:calc(100vh - 100px)}
+#mount[data-tab="home"]>.hm-wrap{display:none}
+#mount[data-tab="home"].exam-show-legacy>.hm-wrap{display:block}
+#exam-root{--ex-bg:#11110e;--ex-panel:#1b1b16;--ex-raised:#22221b;--ex-line:#39392d;--ex-text:#eeeade;--ex-soft:#c2bcaa;--ex-muted:#a09b89;--ex-gold:#ddc68b;--ex-ink:#211d12;--ex-green:#8cc8a7;--ex-red:#edaaa0;--ex-amber:#ecc77b;color:var(--ex-text);font:16px/1.65 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;max-width:1160px;width:100%;padding:30px 28px 72px;margin:0 auto;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+#exam-root *,#exam-root *::before,#exam-root *::after{box-sizing:border-box}
+#exam-root button,#exam-root input,#exam-root select,#exam-root textarea{font:inherit}
+#exam-root button,#exam-root a{touch-action:manipulation}
+#exam-root button{cursor:pointer}
+#exam-root button:disabled{opacity:.45;cursor:default}
+#exam-root button:focus-visible,#exam-root a:focus-visible,#exam-root input:focus-visible,#exam-root select:focus-visible,#exam-root textarea:focus-visible{outline:3px solid var(--ex-gold);outline-offset:3px}
+#exam-root h1,#exam-root h2,#exam-root h3,#exam-root p{margin:0}
+#exam-root h1{font-size:clamp(25px,4vw,38px);font-weight:700;line-height:1.35;letter-spacing:-.045em;color:var(--ex-text)}
+#exam-root h2{font-size:21px;font-weight:700;line-height:1.45;letter-spacing:-.025em}
+#exam-root h3{font-size:16px;font-weight:700;line-height:1.5}
+#exam-root a{color:var(--ex-gold);text-underline-offset:4px}
+#exam-root [hidden]{display:none!important}
+#exam-root .ex-eyebrow{color:var(--ex-gold);font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px}
+#exam-root .ex-muted{color:var(--ex-muted);font-size:13px}
+#exam-root .ex-soft{color:var(--ex-soft)}
+#exam-root .ex-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#exam-root .ex-between{justify-content:space-between}
+#exam-root .ex-top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:26px}
+#exam-root .ex-intro{margin-top:10px;color:var(--ex-soft);font-size:14px;max-width:650px}
+#exam-root .ex-deadline{text-align:right;min-width:112px}
+#exam-root .ex-dday{font-size:40px;font-weight:700;line-height:1.2;letter-spacing:-.04em;color:var(--ex-gold);font-variant-numeric:tabular-nums}
+#exam-root .ex-date{color:var(--ex-soft);font-size:12px;margin-top:5px;word-break:keep-all}
+#exam-root .ex-btn{appearance:none;border:1px solid var(--ex-line);background:var(--ex-raised);color:var(--ex-text);border-radius:10px;padding:10px 16px;font-weight:600;line-height:1.5;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;min-height:44px}
+#exam-root .ex-btn:hover{border-color:#756a4e;background:#2b2a21}
+#exam-root .ex-btn-primary{background:var(--ex-gold);border-color:var(--ex-gold);color:var(--ex-ink)}
+#exam-root .ex-btn-primary:hover{background:#ead49b;border-color:#ead49b;color:var(--ex-ink)}
+#exam-root .ex-btn-small{font-size:13px;padding:7px 12px;min-height:36px}
+#exam-root .ex-btn-quiet{background:transparent;color:var(--ex-soft);border-color:transparent}
+#exam-root .ex-btn-quiet:hover{border-color:var(--ex-line);background:var(--ex-panel)}
+#exam-root .ex-card{border:1px solid var(--ex-line);border-radius:16px;background:var(--ex-panel);padding:24px}
+#exam-root .ex-main-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:18px;align-items:stretch}
+#exam-root .ex-daily{background:linear-gradient(135deg,#28271c,#1b1b16 72%);border-color:#5a5135;display:flex;flex-direction:column}
+#exam-root .ex-daily h2{font-size:25px;margin-bottom:8px}
+#exam-root .ex-target-number{font-size:48px;line-height:1.2;font-weight:700;letter-spacing:-.045em;color:var(--ex-gold);font-variant-numeric:tabular-nums}
+#exam-root .ex-target-number small{font-size:17px;font-weight:400;letter-spacing:0;color:var(--ex-soft);margin-left:5px}
+#exam-root .ex-plan-parts{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--ex-soft);margin:12px 0}
+#exam-root .ex-plan-parts b{color:var(--ex-text);font-size:18px;margin-left:4px;font-variant-numeric:tabular-nums}
+#exam-root .ex-plan-cta{display:flex;flex-wrap:wrap;gap:9px;margin-top:auto;padding-top:20px}
+#exam-root .ex-plan-cta .ex-btn-primary{flex:1;min-width:190px;padding:13px 16px}
+#exam-root .ex-track{background:#313127;border-radius:6px;overflow:hidden;height:8px;display:flex;width:100%}
+#exam-root .ex-track span{height:100%;display:block;min-width:0;background:var(--ex-gold);transition:width .25s ease}
+#exam-root .ex-track .ex-seen-fill{background:#7d765b}
+#exam-root .ex-track .ex-master-fill{background:var(--ex-green)}
+#exam-root .ex-progress-label{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--ex-soft);margin:14px 0 7px}
+#exam-root .ex-progress-label b{color:var(--ex-text);font-weight:500}
+#exam-root .ex-alert{font-size:13px;color:var(--ex-amber);margin-top:12px;line-height:1.65}
+#exam-root .ex-notice{background:#27251a;border-left:3px solid var(--ex-gold);padding:12px 15px;font-size:14px;color:var(--ex-text);margin-bottom:18px;border-radius:0 8px 8px 0}
+#exam-root .ex-notice-error{border-left-color:var(--ex-red);background:#2e211d;color:#f0c6bc}
+#exam-root .ex-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
+#exam-root .ex-stat-label{color:var(--ex-muted);font-size:12px;margin-bottom:3px}
+#exam-root .ex-stat-value{font-size:26px;font-weight:650;color:var(--ex-text);font-variant-numeric:tabular-nums;line-height:1.35}
+#exam-root .ex-stat-value small{font-size:12px;color:var(--ex-muted);font-weight:400;margin-left:4px}
+#exam-root .ex-small-lines{display:flex;flex-direction:column;gap:9px;margin-top:18px;padding-top:16px;border-top:1px solid var(--ex-line);font-size:13px;color:var(--ex-soft)}
+#exam-root .ex-small-lines b{color:var(--ex-text);font-weight:500}
+#exam-root .ex-section{margin-top:30px}
+#exam-root .ex-section-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+#exam-root .ex-topics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#exam-root .ex-topic{padding:17px 19px;border:1px solid var(--ex-line);background:#181813;border-radius:12px}
+#exam-root .ex-topic-name{font-size:16px;font-weight:650}
+#exam-root .ex-topic-meta{font-size:12px;color:var(--ex-muted);margin:5px 0 10px}
+#exam-root .ex-topic .ex-track{height:6px;margin-bottom:12px}
+#exam-root .ex-topic .ex-row{gap:7px}
+#exam-root .ex-topic .ex-btn{font-size:12px;min-height:34px;padding:6px 10px}
+#exam-root .ex-topic-count{color:var(--ex-soft);font-size:12px;font-variant-numeric:tabular-nums}
+#exam-root .ex-legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--ex-muted);font-size:12px}
+#exam-root .ex-forecast-summary{display:flex;flex-wrap:wrap;gap:24px 50px;margin:6px 0 15px}
+#exam-root .ex-forecast-summary>div{display:flex;flex-direction:column;gap:4px}
+#exam-root .ex-forecast-summary span{font-size:12px;color:var(--ex-muted)}
+#exam-root .ex-forecast-summary b{font-size:28px;font-weight:650;line-height:1.3;font-variant-numeric:tabular-nums}
+#exam-root .ex-forecast-summary small{font-size:13px;font-weight:400;color:var(--ex-soft);margin-left:5px}
+#exam-root .ex-forecast-bars{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:10px;margin:22px 0 16px}
+#exam-root .ex-forecast-day{text-align:center;font-size:11px;color:var(--ex-muted);font-variant-numeric:tabular-nums;min-width:0}
+#exam-root .ex-forecast-value{color:var(--ex-soft)}
+#exam-root .ex-forecast-track{height:65px;display:flex;align-items:flex-end;justify-content:center;margin:4px 0 6px}
+#exam-root .ex-forecast-track i{display:block;background:var(--ex-gold);width:100%;max-width:32px;border-radius:3px 3px 0 0;opacity:.8}
+@media(max-width:540px){#exam-root .ex-forecast-bars{grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}#exam-root .ex-forecast-summary{gap:18px}#exam-root .ex-forecast-summary b{font-size:24px}}
+#exam-root .ex-legend span{display:flex;align-items:center;gap:5px}
+#exam-root .ex-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#7d765b}
+#exam-root .ex-dot-master{background:var(--ex-green)}
+#exam-root .ex-challenges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#exam-root .ex-challenge{border:1px solid var(--ex-line);border-radius:12px;padding:18px;background:#181813;display:flex;flex-direction:column;align-items:flex-start;gap:9px}
+#exam-root .ex-challenge p{font-size:13px;color:var(--ex-soft);flex:1}
+#exam-root .ex-footer{margin-top:30px;border-top:1px solid var(--ex-line);padding-top:20px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+#exam-root .ex-footer .ex-row{gap:8px}
+#exam-root .ex-coverage{margin-top:16px;color:var(--ex-soft);font-size:13px}
+#exam-root .ex-coverage summary{cursor:pointer;font-weight:600;color:var(--ex-text);padding:8px 0}
+#exam-root .ex-coverage-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 20px;padding-top:10px}
+#exam-root .ex-coverage-item{padding:9px 0;border-bottom:1px solid var(--ex-line)}
+#exam-root .ex-coverage-item b{display:block;color:var(--ex-text);font-weight:600}
+#exam-root .ex-coverage-item span{color:var(--ex-muted);font-size:12px}
+#exam-root .ex-settings{margin-top:16px}
+#exam-root .ex-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}
+#exam-root .ex-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ex-soft)}
+#exam-root .ex-field input,#exam-root .ex-field select,#exam-root textarea{width:100%;background:#11110e;color:var(--ex-text);border:1px solid #55503f;border-radius:8px;padding:10px 12px;min-height:44px;font-size:16px}
+#exam-root .ex-field small{font-size:12px;color:var(--ex-muted)}
+#exam-root .ex-textarea{min-height:76px;resize:vertical;line-height:1.6}
+#exam-root .ex-study{max-width:840px;margin:0 auto}
+#exam-root .ex-study-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+#exam-root .ex-study-meta{font-size:13px;color:var(--ex-soft);font-variant-numeric:tabular-nums}
+#exam-root .ex-question-card{margin-top:18px;padding:32px;min-height:290px;display:flex;flex-direction:column}
+#exam-root .ex-question{font-size:clamp(20px,3vw,26px);line-height:1.75;letter-spacing:-.025em;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;margin:10px 0 22px!important}
+#exam-root .ex-answer{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:21px;line-height:1.8;color:var(--ex-green);padding:19px 0 15px;border-top:1px solid var(--ex-line);margin-top:18px}
+#exam-root .ex-answer-label{font-size:11px;letter-spacing:.1em;font-weight:700;color:var(--ex-muted);margin-bottom:6px}
+#exam-root .ex-detail{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:14px;color:var(--ex-soft);margin-top:12px}
+#exam-root .ex-reveal{width:100%;margin-top:18px;min-height:52px}
+#exam-root .ex-choices{display:flex;flex-direction:column;gap:8px;margin:10px 0 18px}
+#exam-root .ex-choice{display:flex;align-items:center;gap:11px;text-align:left;width:100%;background:#171712;border:1px solid var(--ex-line);border-radius:9px;color:var(--ex-text);padding:12px;font-size:15px;line-height:1.6;min-height:48px}
+#exam-root .ex-choice[aria-pressed="true"]{border-color:var(--ex-gold);background:#302b1d}
+#exam-root .ex-choice[data-correct="true"]{border-color:var(--ex-green);color:var(--ex-green);opacity:1}
+#exam-root .ex-choice:disabled{opacity:.75}
+#exam-root .ex-choice-index{flex:0 0 21px;color:var(--ex-muted);font-variant-numeric:tabular-nums}
+#exam-root .ex-choice-verdict{font-size:11px;margin-left:auto;flex-shrink:0}
+#exam-root .ex-grades{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:18px}
+#exam-root .ex-grade{padding:13px 8px;min-height:70px;flex-direction:column;gap:1px}
+#exam-root .ex-grade small{font-size:11px;font-weight:400;color:var(--ex-soft)}
+#exam-root .ex-grade[data-grade="0"]{border-color:#69443a;color:#f0b0a0}
+#exam-root .ex-grade[data-grade="1"]{color:var(--ex-amber)}
+#exam-root .ex-grade[data-grade="3"]{border-color:#42634e;color:var(--ex-green)}
+#exam-root .ex-study-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;font-size:12px;color:var(--ex-muted)}
+#exam-root .ex-study-status{color:var(--ex-soft);font-size:13px;min-height:22px;margin:10px 0}
+#exam-root .ex-checkpoint{padding:36px;text-align:center}
+#exam-root .ex-checkpoint h1{margin:7px 0 12px}
+#exam-root .ex-result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px auto;max-width:500px}
+#exam-root .ex-result-grid b{display:block;font-size:30px;font-weight:700;color:var(--ex-gold)}
+#exam-root .ex-result-grid span{font-size:12px;color:var(--ex-muted)}
+#exam-root .ex-review-list{text-align:left;margin:20px auto;padding:0;list-style:none;max-width:640px}
+#exam-root .ex-review-list li{padding:12px 0;border-top:1px solid var(--ex-line);font-size:14px}
+#exam-root .ex-review-list li span{display:block;font-size:13px;color:var(--ex-soft);margin-top:4px;white-space:pre-wrap}
+#exam-root .ex-day-strip{display:grid;grid-template-columns:repeat(14,1fr);gap:5px;margin-top:12px}
+#exam-root .ex-day-cell{height:28px;background:#2b2b23;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ex-soft)}
+#exam-root .ex-day-cell[data-active="true"]{background:#3b5d49;color:#e7f3e8}
+#exam-root .ex-day-cell[data-today="true"]{outline:1px solid var(--ex-gold);outline-offset:2px}
+#exam-root .ex-empty{padding:30px 0;color:var(--ex-soft)}
+#exam-live{min-height:22px;color:#d9c69a;font:13px/1.5 'Apple SD Gothic Neo','Malgun Gothic',sans-serif;max-width:1104px;margin:0 auto;padding:0 20px}
+@media(max-width:760px){#exam-root{padding:24px 18px 52px}#exam-root .ex-main-grid{grid-template-columns:1fr}#exam-root .ex-top{gap:12px}#exam-root .ex-card{padding:20px}#exam-root .ex-challenges{grid-template-columns:1fr}#exam-root .ex-challenge{display:grid;grid-template-columns:1fr auto;align-items:center}#exam-root .ex-challenge p{grid-row:2;grid-column:1}#exam-root .ex-challenge button{grid-column:2;grid-row:1/3}#exam-root .ex-question-card{padding:24px}#exam-root .ex-settings-grid{grid-template-columns:1fr}#exam-root .ex-dday{font-size:32px}#tabbar{padding:10px 14px}#hub-hint{display:none}}
+@media(max-width:480px){#exam-root{padding:20px 14px 42px}#exam-root .ex-topics{grid-template-columns:1fr}#exam-root .ex-deadline{min-width:84px}#exam-root .ex-date{font-size:11px}#exam-root .ex-intro{font-size:13px}#exam-root .ex-grades{grid-template-columns:repeat(2,1fr)}#exam-root .ex-coverage-list{grid-template-columns:1fr}#exam-root .ex-question-card{padding:20px}#exam-root .ex-top{margin-bottom:18px}#exam-root .ex-checkpoint{padding:24px 18px}#tabbar .brand{font-size:14px}#tabbar .brand small{font-size:9px}#tabbar .tab,#hub-tools-toggle{font-size:12px;padding:7px 9px}#exam-root .ex-day-strip{gap:3px}}
+@media(prefers-reduced-motion:reduce){#exam-root .ex-track span{transition:none}}

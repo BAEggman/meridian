@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>經絡 학습 통합 — 경혈·기능·발전사·시동소생 퀴즈 + 자타 암송</title>
+<title>경락 허브 — 시험일까지 전 범위 회상·복습</title>
+<meta name="description" content="시험일까지 남은 학습량을 계산하고, 경락·경혈·유주·사암 전 범위를 회상과 간격 복습으로 익힙니다.">
+<script defer src="exam-catalog.js"></script>
+<script defer src="exam-engine.js"></script>
+<script defer src="exam-app.js"></script>
 <style>
   :root{ --hub-ink:#0f0d0a; --hub-bar:#171310; --hub-line:#3a3225; --hub-gold:#cbb87e; --hub-dim:#b2a994; }
   html,body{margin:0;padding:0;background:var(--hub-ink)}
@@ -31,11 +35,15 @@
   body{display:block !important}
   #mount>.wrap{margin-left:auto !important;margin-right:auto !important}
 </style>
+<link rel="stylesheet" href="exam.css">
 </head>
 <body>
 <div id="tabbar">
-  <div class="brand">經絡 학습 통합<small>MERIDIAN STUDY HUB</small></div>
-  <button class="tab" data-id="home">홈</button>
+  <div class="brand">經絡 학습 허브<small>RECALL · REVIEW · REMEMBER</small></div>
+  <button class="tab" data-id="home">오늘 공부</button>
+  <button id="hub-tools-toggle" type="button" aria-expanded="false" aria-controls="hub-tool-list">학습 도구 22</button>
+  <span id="hub-hint"></span>
+  <div id="hub-tool-list" hidden>
   <button class="tab" data-id="acu">경혈 퀴즈</button>
   <button class="tab" data-id="osstep">오수혈 상생휠</button>
   <button class="tab" data-id="osspeed">오수혈 스피드</button>
@@ -58,9 +66,9 @@
   <button class="tab" data-id="saammaster">사암 종합</button>
   <button class="tab" data-id="saamquiz">사암 보사 퀴즈</button>
   <button class="tab" data-id="saambosafill">사암 補瀉</button>
-  <span class="grow"></span>
-  <span id="hub-hint"></span>
+  </div>
 </div>
+<div id="exam-live" role="status" aria-live="polite"></div>
 <div id="loader" class="hidden"><div><div class="sp"></div><div class="msg">불러오는 중…</div></div></div>
 <div id="mount"></div>
 <template id="tpl-acu"><style>
@@ -3162,7 +3170,7 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
   const mount=document.getElementById('mount');
   const loader=document.getElementById('loader');
   const hint=document.getElementById('hub-hint');
-  const HINTS={home:'전체 학습 현황 · 진도·연속·이어서 학습',
+  const HINTS={home:'시험일까지 전 범위 회상 · 오늘의 신규·복습 · 실제 응답으로 쌓는 기록',
                acu:'五輸·原絡郄募背兪·八會·八脈交會·순행·동음이자 — 간격반복',
                osstep:'井(陰木·陽金)에서 相生으로 밟아 五輸穴 五行 도출 — 회로 학습',
                osspeed:'五輸穴↔五行 반사 훈련 — 타이머·콤보 (양방향)',
@@ -3186,7 +3194,7 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
                saamquiz:'舍岩 4법(自經·正格·勝格·主客·寒熱) 혈·五行 — 간격반복',
                saambosafill:'自經·主客·正格·勝格 — 칩으로 빈칸 채우기 (도출 훈련)'
 };
-  let ACTIVE=null, recs=[];
+  let ACTIVE=null, recs=[], activationSerial=0;
   const TKEY='hub_track_v1';
   function _tk(){ try{const o=JSON.parse(localStorage.getItem(TKEY))||{};o.tools=o.tools||{};o.days=o.days||{};return o;}catch(e){return {tools:{},days:{}};} }
   function _tkSave(t){ try{localStorage.setItem(TKEY,JSON.stringify(t));}catch(e){} }
@@ -3196,7 +3204,7 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
   const SKEY='hub_stats_v1';
   function _sk(){ try{const o=JSON.parse(localStorage.getItem(SKEY))||{};o.q=o.q||{};return o;}catch(e){return {q:{}};} }
   function _skSave(o){ try{localStorage.setItem(SKEY,JSON.stringify(o));}catch(e){} }
-  window.HubStats={ record:function(tool,card,correct){ try{ if(!tool||!card||card.id==null)return; const o=_sk(); const k=tool+'::'+card.id; const e=o.q[k]||{tool:tool,id:card.id,seen:0,wrong:0}; e.seen++; if(!correct)e.wrong++; if(card.q!=null)e.q=String(card.q).slice(0,240); if(card.cat!=null)e.cat=String(card.cat).slice(0,80); if(card.kind!=null)e.kind=String(card.kind).slice(0,48); if(card.a!=null)e.a=String(card.a).slice(0,160); e.last=_tkToday(); if(!correct)e.lastWrong=_tkToday(); e.h=(e.h||[]).concat([[_tkToday(),correct?1:0]]).slice(-10); o.q[k]=e; _skSave(o); }catch(err){} }, get:function(){ return _sk(); } };
+  window.HubStats={ record:function(tool,card,correct){ try{ if(!tool||!card||card.id==null)return; const o=_sk(); const k=tool+'::'+card.id; const e=o.q[k]||{tool:tool,id:card.id,seen:0,wrong:0}; e.seen++; if(!correct)e.wrong++; if(card.q!=null)e.q=String(card.q).slice(0,240); if(card.cat!=null)e.cat=String(card.cat).slice(0,80); if(card.kind!=null)e.kind=String(card.kind).slice(0,48); if(card.a!=null)e.a=String(card.a).slice(0,160); e.last=_tkToday(); if(!correct)e.lastWrong=_tkToday(); e.h=(e.h||[]).concat([[_tkToday(),correct?1:0]]).slice(-10); o.q[k]=e; _skSave(o); window.dispatchEvent(new CustomEvent('hub:answer',{detail:{tool:tool,cardId:String(card.id),correct:!!correct}})); }catch(err){} }, get:function(){ return _sk(); } };
   function inject(text, where){ const s=document.createElement('script'); s.textContent=text; (where||mount).appendChild(s); }
   function captureOn(){
     recs=[]; const oD=document.addEventListener, oW=window.addEventListener;
@@ -3207,10 +3215,16 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
   function deactivate(){
     if(ACTIVE==='jata'){ try{ window.__jataStop && window.__jataStop(); }catch(e){} }
     recs.forEach(r=>{ try{ (r[0]==='d'?document:window).removeEventListener(r[1],r[2],r[3]); }catch(e){} });
-    recs=[]; mount.innerHTML='';
+    recs=[]; mount.innerHTML=''; ACTIVE=null; window.__active=null;
+  }
+  function notifyTab(id){
+    if(window.location.hash!=='#'+id){ try{history.pushState(null,'','#'+id);}catch(e){} }
+    window.dispatchEvent(new CustomEvent('hub:tabchange',{detail:{id:id}}));
   }
   async function activate(id){
-    if(ACTIVE===id) return;
+    if(id!=='saambosafill'&&!document.getElementById('tpl-'+id)) id='home';
+    const activation=++activationSerial;
+    if(ACTIVE===id){ notifyTab(id); loader.classList.add('hidden'); return; }
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.id===id));
     if(hint) hint.textContent = HINTS[id]||'';
     deactivate();
@@ -3219,6 +3233,7 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
       loader.querySelector('.msg').textContent='오디오 불러오는 중… (최초 1회, 잠시만요)';
       loader.classList.remove('hidden');
       await new Promise(r=>setTimeout(r,40));
+      if(activation!==activationSerial) return;
       inject(document.getElementById('src-audio').textContent, document.body);
     }
     if(id==='saambosafill'){
@@ -3233,8 +3248,10 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
       try{logVisit(id);}catch(e){}
       loader.classList.add('hidden');
       window.scrollTo(0,0);
+      notifyTab(id);
       return;
     }
+    window.__active=id;
     mount.appendChild(document.getElementById('tpl-'+id).content.cloneNode(true));
     const restore=captureOn();
     try{ inject(document.getElementById('src-'+id).textContent); }
@@ -3248,13 +3265,14 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
     try{logVisit(id);}catch(e){}
     loader.classList.add('hidden');
     window.scrollTo(0,0);
+    notifyTab(id);
   }
 
   /* ===== ② 통합 오늘 세션: 전 도구의 복습 대기 문항을 라운드로빈 청크로 섞어 순서대로 진행 ===== */
   window.HubSession={
     st:null,
     start:function(plan){ this.st={plan:plan||[],i:0,items:(plan||[]).reduce(function(n,c){return n+c.ids.length;},0),t0:Date.now()}; this.next(); },
-    active:function(){ return !!(this.st&&this.st.i<this.st.plan.length); },
+    active:function(){ return !!this.st; },
     cancel:function(){ this.st=null; window.__focusDrill=null; if(hint) hint.textContent=HINTS[ACTIVE]||''; },
     next:function(){
       var S=this.st; if(!S) return;
@@ -3263,14 +3281,19 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
       window.__focusDrill={tool:c.tool,ids:c.ids.slice(),hub:true};
       var label=(TOOL_LABEL[c.tool]||c.tool);
       var self=this;
-      var go=function(){ if(hint) hint.textContent='통합 세션 '+S.i+'/'+S.plan.length+' · '+label+' '+c.ids.length+'문항'; };
+      var go=function(){ if(self.st===S&&ACTIVE===c.tool&&hint) hint.textContent='통합 세션 '+S.i+'/'+S.plan.length+' · '+label+' '+c.ids.length+'문항'; };
       if(ACTIVE===c.tool){ ACTIVE=null; } /* 같은 도구가 연속되면 재마운트해 focusDrill을 소비시킴 */
       Promise.resolve(activate(c.tool)).then(go,go);
     }
   };
   var TOOL_LABEL={acu:'경혈 퀴즈',func:'기능 퀴즈',history:'발전사',sidong:'시동·소생',baesurule:'배수혈 추론',saamquiz:'사암 보사'};
-  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ try{ if(window.HubSession&&HubSession.active()) HubSession.cancel(); }catch(e){} activate(t.dataset.id); });
-  window.__activate=activate;
+  // Manual navigation ends the legacy queue; its own next() keeps using activate().
+  function manualActivate(id){
+    if(window.HubSession&&window.HubSession.active()) window.HubSession.cancel();
+    return activate(id);
+  }
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>manualActivate(t.dataset.id));
+  window.__activate=manualActivate;
   /* ===== 전역 스페이스→다음 (플래시카드/문제 게임 통일) ===== */
   (function(){
     var SELF=['acu','func','history','sidong','baesurule','saamquiz']; /* 자체 스페이스 처리: 중복 advance 방지 위해 제외 */
@@ -3289,7 +3312,10 @@ window.__jataStop=function(){try{stopAll(true);}catch(e){}try{if(actx&&actx.stat
       }
     });
   })();
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){activate('home');});}else{activate('home');}
+  function requestedTab(){ var id=window.location.hash.slice(1); return id==='saambosafill'||document.getElementById('tpl-'+id)?id:'home'; }
+  window.addEventListener('hashchange',function(){manualActivate(requestedTab());});
+  window.addEventListener('popstate',function(){manualActivate(requestedTab());});
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){activate(requestedTab());});}else{activate(requestedTab());}
 })();
 </script>
 
@@ -6693,6 +6719,7 @@ function choose(btn){
   G.sSeen++;
   // log
   G.db.log[t]=G.db.log[t]||{a:0,c:0}; G.db.log[t].a++; if(correct)G.db.log[t].c++;
+  try{ if(window.HubStats) window.HubStats.record('saamquiz',b,correct); }catch(e){}
   saveDB();
   // feedback
   const hr=$('hint-row'); if(hr) hr.style.display='none';
