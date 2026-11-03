@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const dist = path.join(root, 'dist');
 fs.mkdirSync(dist, {recursive: true});
-for (const name of ['index.html', 'saam_bosa_fill.html', 'exam.css', 'exam-catalog.js', 'exam-engine.js', 'exam-app.js']) {
+for (const name of ['index.html', 'saam_bosa_fill.html', 'exam.css', 'exam-catalog.js', 'exam-engine.js', 'exam-storage.js', 'exam-app.js']) {
   fs.copyFileSync(path.join(root, name), path.join(dist, name));
 }
 for (const name of ['songs', 'songs_jata']) {

@@ -4,7 +4,7 @@
   var SESSION_STORAGE = 'meridian_exam_session_v1';
   var LEGACY_KEYS = ['acu_srs_v3', 'gyeongnak_func_srs_v1', 'gyeongnak_history_srs_v1', 'sidong_sosaeng_srs_v1', 'baesu_rule_srs_v1', 'saam_bosa_srs_v1', 'jata_jingmai_v1', 'jiaohoe_cloze_v1', 'hub_track_v1', 'hub_stats_v1', 'hub_session_last', 'mrd_song_pref_v1'];
   var E, C, state, cardMap, sourceMap;
-  var root, activeSession = null, pendingSession = null, revealed = false;
+  var root, activeSession = null, pendingSession = null, unsavedSession = null, revealed = false;
   var startedAt = 0, elapsedBeforePause = 0, protectedRaw = null, storageWarning = '', notice = '', dirty = false;
   var sourceLabels = {}, feedback = '', settingsOpen = false, busy = false;
   var sessionChoices = [], selectedChoice = null, usedHint = false;
@@ -14,18 +14,31 @@
   function pct(v, total) { return total ? Math.max(0, Math.min(100, Math.round(v / total * 100))) : 0; }
   function safeRead(key) { try { return localStorage.getItem(key); } catch (err) { storageWarning = '이 브라우저에서 기록 저장을 사용할 수 없습니다. 학습 후 기록을 백업해 주세요.'; return null; } }
   function parse(raw) { try { return raw ? JSON.parse(raw) : null; } catch (err) { return null; } }
+  function parseStoredExam(raw) {
+    if (!raw) return null;
+    try { var codec = window.MeridianExamStorage; return JSON.parse(codec && typeof codec.decode === 'function' ? codec.decode(raw) : raw); }
+    catch (err) { return null; }
+  }
+  function encodeStoredExam(value) {
+    var raw = JSON.stringify(value), codec = window.MeridianExamStorage;
+    return codec && typeof codec.encode === 'function' ? codec.encode(raw) : raw;
+  }
+  function unreadableExam(raw, saved) { return !!raw && (!saved || typeof saved !== 'object' || Array.isArray(saved) || (saved.version && saved.version !== 1)); }
+  function protectExam(raw) {
+    protectedRaw = raw;
+    storageWarning = '저장된 시험 기록을 읽지 못해 임시 모드로 열었습니다. 원본은 보존되어 있습니다. 먼저 기록 백업을 내려받고 정상 백업을 복원해 주세요.';
+  }
   function clone(v) { return JSON.parse(JSON.stringify(v)); }
   function persist() {
     if (protectedRaw !== null) return false;
-    try { localStorage.setItem(STORAGE, JSON.stringify(state)); dirty = false; return true; }
+    try { localStorage.setItem(STORAGE, encodeStoredExam(state)); dirty = false; return true; }
     catch (err) { dirty = true; storageWarning = '기록을 저장하지 못했습니다. 이 화면을 닫기 전에 학습 기록을 백업해 주세요.'; announce(storageWarning); return false; }
   }
-  function announce(msg) { var live = document.getElementById('exam-live'); if (live) live.textContent = msg || ''; }
+  function announce(msg) { var live = document.getElementById('exam-live'); if (live) live.textContent = (msg || '') + (storageWarning && msg !== storageWarning ? ' ' + storageWarning : ''); }
   function loadState() {
-    var raw = safeRead(STORAGE), saved = parse(raw);
-    if (raw && (!saved || typeof saved !== 'object' || (saved.version && saved.version !== 1))) {
-      protectedRaw = raw;
-      storageWarning = '저장된 시험 기록을 읽지 못해 임시 모드로 열었습니다. 원본은 보존되어 있습니다. 먼저 기록 백업을 내려받고 정상 백업을 복원해 주세요.';
+    var raw = safeRead(STORAGE), saved = parseStoredExam(raw);
+    if (unreadableExam(raw, saved)) {
+      protectExam(raw);
       state = E.createState(day());
       return;
     }
@@ -57,20 +70,61 @@
   }
   function refreshState() {
     if (protectedRaw !== null || dirty) return;
-    var saved = parse(safeRead(STORAGE));
+    var raw = safeRead(STORAGE), saved = parseStoredExam(raw);
+    if (unreadableExam(raw, saved)) { protectExam(raw); announce(storageWarning); return; }
     if (saved && saved.version === 1) state = E.normalizeState(saved, C, day());
   }
   function getPending() {
-    var s = parse(safeRead(SESSION_STORAGE));
+    var s = unsavedSession ? clone(unsavedSession) : parse(safeRead(SESSION_STORAGE));
     if (!s || s.version !== 1 || s.day !== day() || !Array.isArray(s.ids) || !Number.isInteger(s.index) || s.index < 0 || s.index >= s.ids.length || s.ids.length > 200) return null;
     if (!s.ids.every(function (id) { return typeof id === 'string' && cardMap[id] && !cardMap[id].needsVerification; })) return null;
     s.results = Array.isArray(s.results) ? s.results.filter(function (r) { return r && typeof r.id === 'string' && cardMap[r.id] && Number.isInteger(r.grade) && r.grade >= 0 && r.grade <= 3; }) : [];
     if (!s.retries || typeof s.retries !== 'object') s.retries = {};
+    if (!s.drafts || typeof s.drafts !== 'object' || Array.isArray(s.drafts)) s.drafts = {};
     return s;
   }
+  function currentDraft() {
+    if (!activeSession) return null;
+    if (!activeSession.sessionId || typeof activeSession.sessionId !== 'string' || activeSession.sessionId.length > 200) activeSession.sessionId = 'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    if (!activeSession.drafts || typeof activeSession.drafts !== 'object' || Array.isArray(activeSession.drafts)) activeSession.drafts = {};
+    var key = String(activeSession.index), d = activeSession.drafts[key], card = cardMap[activeSession.ids[activeSession.index]];
+    if (!d || typeof d !== 'object' || Array.isArray(d)) d = {};
+    function preserveInvalid(field) {
+      if (!d.invalidFields || typeof d.invalidFields !== 'object' || Array.isArray(d.invalidFields)) d.invalidFields = {};
+      if (!Object.prototype.hasOwnProperty.call(d.invalidFields, field)) d.invalidFields[field] = clone(d[field]);
+    }
+    ['usedHint', 'revealed', 'started'].forEach(function (field) { if (d[field] !== undefined && typeof d[field] !== 'boolean') { preserveInvalid(field); if (field !== 'started') d.usedHint = true; } });
+    if (d.attemptId !== undefined && (typeof d.attemptId !== 'string' || !d.attemptId || d.attemptId.length > 240)) { preserveInvalid('attemptId'); d.usedHint = true; }
+    d.attemptId = typeof d.attemptId === 'string' && d.attemptId && d.attemptId.length <= 240 ? d.attemptId : activeSession.sessionId + ':' + key;
+    if (d.originalAnswer !== undefined && d.originalAnswer !== null && typeof d.originalAnswer !== 'string') { preserveInvalid('originalAnswer'); d.usedHint = true; }
+    d.text = typeof d.text === 'string' ? d.text : '';
+    d.originalAnswer = typeof d.originalAnswer === 'string' ? d.originalAnswer : null;
+    d.usedHint = d.usedHint === true;
+    d.revealed = d.revealed !== undefined && d.revealed !== false;
+    d.started = d.started === true;
+    d.elapsedMs = Math.max(0, num(d.elapsedMs));
+    d.choiceValue = typeof d.choiceValue === 'string' ? d.choiceValue : null;
+    var choices = card && Array.isArray(card.choices) ? card.choices : [];
+    if (!Array.isArray(d.choices) || d.choices.length !== choices.length || d.choices.some(function (v) { return typeof v !== 'string' || choices.indexOf(v) < 0; }) || new Set(d.choices).size !== new Set(choices).size) {
+      if (d.choices !== undefined) { preserveInvalid('choices'); d.usedHint = true; }
+      d.choices = choices.slice();
+      for (var i = d.choices.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), tmp = d.choices[i]; d.choices[i] = d.choices[j]; d.choices[j] = tmp; }
+    }
+    if (d.choiceValue !== null && d.choices.indexOf(d.choiceValue) < 0) { preserveInvalid('choiceValue'); d.usedHint = true; d.choiceValue = null; }
+    if ((d.usedHint || d.revealed) && d.originalAnswer === null) d.originalAnswer = d.text;
+    activeSession.drafts[key] = d;
+    return d;
+  }
+  function captureTime() {
+    if (!activeSession || activeSession.index >= activeSession.ids.length) return;
+    var d = currentDraft();
+    if (startedAt) { elapsedBeforePause += Math.max(0, Date.now() - startedAt); startedAt = document.hidden ? 0 : Date.now(); }
+    if (d) d.elapsedMs = elapsedBeforePause;
+  }
   function saveSession() {
-    try { if (activeSession) localStorage.setItem(SESSION_STORAGE, JSON.stringify(activeSession)); else localStorage.removeItem(SESSION_STORAGE); }
-    catch (err) { storageWarning = '세트의 중간 위치를 저장하지 못했습니다. 학습 기록은 백업으로 보관할 수 있습니다.'; }
+    captureTime();
+    try { if (activeSession) localStorage.setItem(SESSION_STORAGE, JSON.stringify(activeSession)); else localStorage.removeItem(SESSION_STORAGE); unsavedSession = null; return true; }
+    catch (err) { unsavedSession = activeSession ? clone(activeSession) : null; storageWarning = '세트의 중간 위치를 저장하지 못했습니다. 이 화면을 닫기 전에 학습 기록을 백업해 주세요.'; announce(storageWarning); return false; }
   }
   function ensureRoot() {
     if (window.__active !== 'home') return null;
@@ -105,13 +159,66 @@
     var next = forecast.days.slice(0, 14), peak = Math.max(1, num(forecast.peakMinutes));
     return '<section class="ex-section ex-card"><div class="ex-section-header"><h2>시험 전날까지 필요한 시간</h2><span class="ex-muted">계획 시뮬레이션 · 실제 성적 예측 아님</span></div><div class="ex-forecast-summary"><div><span>남은 기간 합계</span><b>' + (num(forecast.totalMinutes) / 60).toFixed(1) + '<small>시간</small></b></div><div><span>하루 평균</span><b>' + Math.ceil(num(forecast.averageMinutes)) + '<small>분</small></b></div><div><span>가장 많은 날</span><b>' + Math.ceil(num(forecast.peakMinutes)) + '<small>분</small></b></div></div>' + (num(forecast.overCapacityDays) ? '<p class="ex-alert">설정한 하루 ' + num(state.settings.dailyMinutes) + '분을 넘는 날이 ' + num(forecast.overCapacityDays) + '일입니다. 계획 설정에서 실제로 확보할 시간을 정해 주세요.</p>' : '') + '<div class="ex-forecast-bars" aria-label="앞으로 14일의 예상 학습 시간">' + next.map(function (x) { return '<div class="ex-forecast-day" aria-label="' + esc(x.day) + ', 신규 ' + num(x.new) + '개, 복습 ' + num(x.review) + '개, 예상 ' + Math.ceil(num(x.minutes)) + '분"><span class="ex-forecast-value">' + Math.ceil(num(x.minutes)) + '</span><div class="ex-forecast-track"><i style="height:' + Math.max(2, pct(num(x.minutes), peak)) + '%"></i></div><span>' + Number(x.day.slice(5, 7)) + '/' + Number(x.day.slice(8)) + '</span></div>'; }).join('') + '</div><p class="ex-muted">막대는 앞으로 14일, 숫자는 분입니다. 항목당 ' + Math.round(num(forecast.estimatedSecondsPerCard)) + '초 · 모든 첫 시도 성공을 가정합니다. 오답, 긴 원문, 휴식은 시간을 더 늘릴 수 있습니다. 오늘 막대는 남은 학습만 포함합니다.</p></section>';
   }
+  function ratio(correct, attempts) { return num(attempts) ? num(correct) + '/' + num(attempts) + ' · ' + pct(correct, attempts) + '%' : '—'; }
+  function delayLabel(seconds) {
+    if (seconds === null || seconds === undefined) return '—';
+    if (num(seconds) < 0) return Math.ceil(Math.abs(num(seconds)) / 60) + '분 일찍';
+    if (!num(seconds)) return '정시';
+    return num(seconds) < 60 ? Math.round(num(seconds)) + '초' : Math.ceil(num(seconds) / 60) + '분';
+  }
+  function bundleCount(d) {
+    var rows = state.reversal && state.reversal.uiDays, row = rows && rows[d];
+    return row && Array.isArray(row.completedSessions) ? new Set(row.completedSessions).size : 0;
+  }
+  function reversalControls(r, prefix) {
+    var reservation = r.reservation, candidates = r.tomorrowCandidates || [], selected = reservation && reservation.day === E.addDays(day(), 1) ? reservation.cardId : '';
+    var current = reservation && cardMap[reservation.cardId];
+    return '<div class="ex-reversal-controls"><h3>내일의 첫 질문을 정해두세요</h3><p class="ex-muted">오늘 틀렸거나 내일까지 다시 볼 질문에서 고릅니다. 정답은 시작할 때 가려집니다.</p>' + (current ? '<div class="ex-booked"><span>예약 ' + esc(reservation.day) + (reservation.plannedTime ? ' · ' + esc(reservation.plannedTime) : '') + '</span><p>' + esc(current.prompt) + '</p></div>' : '') + '<form data-reversal-form><div class="ex-reversal-form-grid"><label class="ex-field" for="' + prefix + '-cue">시작 신호<input id="' + prefix + '-cue" name="cue" maxlength="160" value="' + esc(r.cue || '') + '" placeholder="예: 아침 커피를 내려놓으면"></label><label class="ex-field" for="' + prefix + '-time">예정 시작 시각 <span class="ex-muted">선택 · 한국 시간</span><input id="' + prefix + '-time" name="plannedTime" type="time" value="' + esc(r.plannedTime || '') + '"></label></div><label class="ex-field" for="' + prefix + '-question">내일 첫 질문<select id="' + prefix + '-question" name="cardId" ' + (candidates.length ? '' : 'disabled') + '><option value="">' + (candidates.length ? '질문을 선택하세요' : '학습 후 예약할 질문이 여기에 나타납니다') + '</option>' + candidates.map(function (c) { return '<option value="' + esc(c.id) + '"' + (c.id === selected ? ' selected' : '') + '>' + esc(c.prompt.length > 120 ? c.prompt.slice(0, 117) + '…' : c.prompt) + '</option>'; }).join('') + '</select></label><div class="ex-row ex-control-actions"><button class="ex-btn ex-btn-primary ex-btn-small" type="submit" ' + (candidates.length ? '' : 'disabled') + '>내일 첫 질문 예약</button><button class="ex-btn ex-btn-small" type="button" data-save-cue>시작 신호·시각 저장</button>' + (reservation ? '<button class="ex-btn ex-btn-quiet ex-btn-small" type="button" data-clear-reservation>예약 해제</button>' : '') + '</div><p class="ex-form-status ex-muted" data-reversal-status role="status"></p></form>' + reflectionMarkup(r.today, prefix) + '</div>';
+  }
+  function reflectionMarkup(row, prefix) {
+    var intent = row && row.returnIntent, labels = ['전혀 없음', '낮음', '보통', '있음', '매우 큼'];
+    return '<fieldset class="ex-reflection"><legend>내일 다시 시작할 마음 <span class="ex-muted">선택 · 하루 한 번</span></legend><div class="ex-intent-options">' + labels.map(function (label, i) { return '<label><input type="radio" name="' + prefix + '-intent" data-return-intent value="' + i + '"' + (intent === i ? ' checked' : '') + '><span><b>' + i + '</b>' + label + '</span></label>'; }).join('') + '<label class="ex-intent-skip"><input type="radio" name="' + prefix + '-intent" data-return-intent value=""' + (intent === null || intent === undefined ? ' checked' : '') + '><span>기록 안 함</span></label></div><p class="ex-form-status ex-muted" data-reflection-status role="status">정답·시간·학습 항목은 자동 기록됩니다. 직접 적는 기록은 하루 5분 이내로 마칩니다.</p></fieldset>';
+  }
+  function reversalMarkup(r) {
+    var row = r.today || {}, first = r.startCard, future = r.reservation && r.reservation.day > day() ? cardMap[r.reservation.cardId] : null;
+    var recovered = (row.recoveredIds || []).map(function (id) { return cardMap[id]; }).filter(Boolean);
+    return '<section class="ex-card ex-reversal" aria-labelledby="ex-reversal-title"><div class="ex-reversal-lead"><div><div class="ex-eyebrow">TOMORROW STARTS HERE</div><h2 id="ex-reversal-title">내일의 반전</h2><p class="ex-soft">오늘 고친 답을, 다음 날 첫 시도에 스스로 꺼내는 순간.</p></div><span class="ex-reversal-tag">작게 시작 · 실제 회복 확인</span></div><div class="ex-reversal-grid"><div class="ex-first-question"><div class="ex-kicker">' + (pendingSession ? '중단한 질문부터 이어서' : r.reservation && r.reservation.day <= day() ? '예약한 오늘 첫 질문' : '오늘 첫 질문') + '</div>' + (r.cue ? '<p class="ex-cue">' + esc(r.cue) + (r.plannedTime ? ' · ' + esc(r.plannedTime) : '') + '</p>' : '<p class="ex-cue">첫 질문 하나부터 시작해 보세요.</p>') + '<p class="ex-first-prompt">' + esc(pendingSession && cardMap[pendingSession.ids[pendingSession.index]] ? cardMap[pendingSession.ids[pendingSession.index]].prompt : first ? first.prompt : '오늘 필요한 회상을 마쳤습니다. 추가 연습으로 이어갈 수 있습니다.') + '</p><button class="ex-btn ex-btn-primary" data-action="' + (pendingSession ? 'resume' : 'rescue') + '">' + (pendingSession ? '첫 질문 이어가기 →' : '첫 2분 시작 →') + '</button><p class="ex-muted ex-start-note">' + (pendingSession ? '저장된 ' + pendingSession.ids.length + '문항 묶음을 이어갑니다. 2분은 다시 시작하기 위한 목표이며, 남은 질문은 나누어 진행할 수 있습니다.' : '2분 동안 첫 질문부터 시작합니다. 짧은 세트는 최대 2문항이며 시간 제한은 없습니다. 하루 전체 목표는 아래에 남아 있습니다.') + '</p>' + (future ? '<p class="ex-next-cue">내일 예약됨 · ' + esc(future.prompt) + '</p>' : '') + '</div><div class="ex-reversal-outcomes"><div class="ex-reversal-metrics"><div><span>오늘 교정</span><b>' + num(row.corrections) + '</b><small>같은 날 다시 맞힘</small></div><div><span>지연 첫 무힌트 회상</span><b class="ex-ratio">' + ratio(row.delayedCorrect, row.delayedAttempts) + '</b><small>이전 학습일 이후 첫 회상</small></div><div class="ex-recovery-metric"><span>실제 회복</span><b>' + num(row.recoveries) + '</b><small>과거 오답 → 날짜 넘긴 첫 성공</small></div></div><p class="ex-muted">오늘 재검사 ' + (r.retestCards || []).length + '개 · 내일 재검사 ' + num(r.tomorrowRetestCount) + '개. 당일 교정은 실제 회복과 따로 셉니다.</p>' + (recovered.length ? '<ul class="ex-recovered-list">' + recovered.slice(0, 3).map(function (c) { return '<li><span>회복 확인</span>' + esc(c.prompt) + '</li>'; }).join('') + '</ul>' : '<p class="ex-no-recovery">아직 확인된 회복은 0개입니다. 다음 날의 첫 회상이 쌓이면 여기에 나타납니다.</p>') + '</div></div><details class="ex-reversal-details"><summary>내일 첫 질문 예약 · 시작 신호 · 짧은 기록</summary>' + reversalControls(r, 'home') + '</details></section>';
+  }
+  function observationMarkup(r) {
+    return '<section class="ex-section ex-card ex-observation"><div class="ex-section-header"><h2>7일 관찰</h2><span class="ex-muted">학습은 자동 기록 · 회고는 5분 이내</span></div><p class="ex-muted">첫 회상은 선택지·힌트 없이 시작한 그날의 첫 응답입니다. 1일 뒤·3일 뒤는 직전 학습일과의 간격이며, 교정과 회복은 따로 기록합니다. —는 측정값이 없습니다.</p><div class="ex-table-scroll" role="region" aria-label="최근 7일 학습 기록" tabindex="0"><table class="ex-observation-table"><thead><tr><th scope="col">날짜</th><th scope="col">시작 지연</th><th scope="col">완료 묶음<br>학습 항목</th><th scope="col">첫 무힌트</th><th scope="col">1일 뒤</th><th scope="col">3일 뒤</th><th scope="col">당일 교정</th><th scope="col">회복</th><th scope="col">학습 시간</th><th scope="col">재방문 의향</th></tr></thead><tbody>' + (r.recentDays || []).map(function (row) { return '<tr' + (row.day === day() ? ' data-today="true"' : '') + '><th scope="row">' + esc(row.day.slice(5).replace('-', '/')) + (row.day === day() ? '<small>오늘</small>' : '') + '</th><td>' + delayLabel(row.startDelaySeconds) + '</td><td>' + bundleCount(row.day) + '묶음 / ' + num(row.uniqueStudied) + '개</td><td>' + ratio(row.firstCorrect, row.firstAttempts) + '</td><td>' + ratio(row.d1Correct, row.d1Attempts) + '</td><td>' + ratio(row.d3Correct, row.d3Attempts) + '</td><td>' + num(row.corrections) + '</td><td class="ex-recovery-cell">' + num(row.recoveries) + '</td><td>' + (num(row.seconds) ? (num(row.seconds) / 60).toFixed(1) + '분' : '—') + '</td><td>' + (row.returnIntent === null || row.returnIntent === undefined ? '—' : num(row.returnIntent) + '/4') + '</td></tr>'; }).join('') + '</tbody></table></div><p class="ex-muted ex-observation-note">시작 지연은 입력·선택·말로 회상 시작을 누른 시점부터 예정 시각과 비교합니다. 학습 시간은 실제 응답 시작 후 화면이 보이는 동안 측정하며, 페이지를 열고 준비하는 시간은 제외합니다. 묶음은 완료한 세트 수이고, 항목은 그날 다룬 고유 문항 수입니다.</p></section>';
+  }
+  function bindReversal(onSaved) {
+    root.querySelectorAll('[data-reversal-form]').forEach(function (form) {
+      function savePreferences(reserve) {
+        var status = form.querySelector('[data-reversal-status]');
+        try {
+          refreshState();
+          var cue = form.elements.cue.value, time = form.elements.plannedTime.value, id = form.elements.cardId.value;
+          if (reserve && !(E.getReversal(C, state, day()).tomorrowCandidates || []).some(function (c) { return c.id === id; })) { status.textContent = '내일 확인할 질문을 목록에서 선택해 주세요.'; return; }
+          var next = E.setReversalPreferences(state, {cue:cue, plannedTime:time}, {today:day()});
+          if (reserve) next = E.reserveFirst(next, id, {today:day(), plannedTime:time});
+          state = next;
+          var saved = persist();
+          status.textContent = saved ? (reserve ? '내일 첫 질문을 예약했습니다.' : '시작 신호와 예정 시각을 저장했습니다.') : storageWarning;
+          if (saved && onSaved) { notice = status.textContent; onSaved(); }
+          announce(status.textContent);
+        } catch (err) { status.textContent = '설정을 저장하지 못했습니다. 입력한 질문과 시각을 확인해 주세요.'; announce(status.textContent); }
+      }
+      form.addEventListener('submit', function (ev) { ev.preventDefault(); savePreferences(true); });
+      form.querySelector('[data-save-cue]').addEventListener('click', function () { savePreferences(false); });
+      var clear = form.querySelector('[data-clear-reservation]');
+      if (clear) clear.addEventListener('click', function () { refreshState(); state = E.reserveFirst(state, null, {today:day()}); var saved = persist(); form.querySelector('[data-reversal-status]').textContent = saved ? '첫 질문 예약을 해제했습니다. 예정 복습은 유지됩니다.' : storageWarning; if (saved && onSaved) onSaved(); announce(saved ? '첫 질문 예약을 해제했습니다.' : storageWarning); });
+    });
+    root.querySelectorAll('[data-return-intent]').forEach(function (input) { input.addEventListener('change', function () { refreshState(); state = E.recordReflection(state, {today:day(), returnIntent:input.value === '' ? null : Number(input.value)}); var saved = persist(), status = input.closest('fieldset').querySelector('[data-reflection-status]'); status.textContent = saved ? (input.value === '' ? '오늘 재방문 의향은 미측정으로 남깁니다.' : '오늘 재방문 의향을 기록했습니다. ' + input.value + '/4') : storageWarning; announce(status.textContent); }); });
+  }
   function dashboard() {
     if (!ensureRoot()) return;
     announce(storageWarning || '');
     activeSession = null;
+    startedAt = 0; elapsedBeforePause = 0;
     refreshState();
     pendingSession = getPending();
-    var p = E.getPlan(C, state, day()), s = E.summary(C, state, day());
+    var p = E.getPlan(C, state, day()), s = E.summary(C, state, day()), reversal = E.getReversal(C, state, day());
     var remaining = num(p.totalRemaining), completed = num(p.totalCompletedToday), target = num(p.totalTarget);
     var examDate = state.settings.examDate;
     var deficit = Math.max(0, Math.ceil(num(p.estimatedMinutes) - num(p.capacityMinutes)));
@@ -122,15 +229,16 @@
       (storageWarning ? '<div class="ex-notice ex-notice-error" role="alert">' + esc(storageWarning) + '</div>' : '') +
       (notice ? '<div class="ex-notice" role="status">' + esc(notice) + '</div>' : '') +
       (p.studyDeadlinePassed ? '<div class="ex-notice">설정된 시험일입니다. 필수 분량의 마감은 시험 전날이며, 아직 남은 내용은 과목별 기록에서 확인하고 선택 복습할 수 있습니다. 다음 시험을 준비한다면 날짜를 바꿔주세요.</div>' : '') +
+      reversalMarkup(reversal) +
       '<div class="ex-main-grid"><div class="ex-card ex-daily"><div class="ex-eyebrow">TODAY’S MISSION</div><h2>' + (p.studyDeadlinePassed ? '시험일 이후 선택 복습' : remaining ? '오늘 남은 학습' : '오늘 계획을 마쳤습니다') + '</h2><div class="ex-target-number">' + remaining + '<small>개 항목</small></div><div class="ex-plan-parts"><span>신규 <b>' + num(p.newRemaining) + '</b></span><span>복습 <b>' + num(p.dueCount) + '</b></span><span>예상 <b>' + Math.ceil(num(p.remainingMinutes)) + '</b>분</span></div>' +
       '<div class="ex-progress-label"><span>오늘 계획</span><b>' + completed + ' / ' + target + '개 완료</b></div><div class="ex-track" role="progressbar" aria-label="오늘 계획 완료" aria-valuenow="' + pct(completed, target) + '" aria-valuemin="0" aria-valuemax="100"><span style="width:' + pct(completed, target) + '%"></span></div>' +
       '<p class="ex-muted" style="margin-top:10px">신규 목표 ' + num(p.newTarget) + '개 · 처음 본 내용도 틀렸다면 다시 확인합니다.</p>' +
       (deficit ? '<div class="ex-alert">오늘 전체 계획의 예상 시간이 설정한 하루 ' + num(p.capacityMinutes) + '분보다 ' + deficit + '분 많습니다. 날짜·학습시간을 조정하거나 세트를 나눠 진행하세요.</div>' : '<div class="ex-alert">12개씩 나눠 진행합니다. 한 세트 완료와 하루 목표 완료는 별개입니다.</div>') +
-      '<div class="ex-plan-cta"><button class="ex-btn ex-btn-primary" data-action="' + (pendingSession ? 'resume' : 'start') + '">' + (pendingSession ? '이어서 학습 · ' + pendingSession.index + '/' + pendingSession.ids.length : remaining ? '오늘 학습 시작 →' : '추가 혼합 회상 →') + '</button><button class="ex-btn" data-action="rescue">2분 복귀</button></div></div>' +
+      '<div class="ex-plan-cta"><button class="ex-btn ex-btn-primary" data-action="' + (pendingSession ? 'resume' : 'start') + '">' + (pendingSession ? '이어서 학습 · ' + pendingSession.index + '/' + pendingSession.ids.length : remaining ? '오늘 학습 시작 →' : '추가 혼합 회상 →') + '</button><button class="ex-btn" data-action="rescue">첫 2분 시작</button></div></div>' +
       '<div class="ex-card"><div class="ex-row ex-between"><h2>전 범위 현황</h2><span class="ex-muted">학습 ' + s.total + '개 · 검토 ' + num(s.verificationPending) + '개</span></div><div class="ex-stats"><div><div class="ex-stat-label">아직 처음</div><div class="ex-stat-value">' + s.unseen + '</div></div><div><div class="ex-stat-label">접한 내용</div><div class="ex-stat-value">' + s.seen + '</div></div><div><div class="ex-stat-label">숙련 확인</div><div class="ex-stat-value">' + s.mastered + '</div></div></div>' + track(s.seen, s.mastered, s.total) +
-      '<div class="ex-small-lines"><div>숙련 기준 <b>서로 다른 3일에 성공</b></div><div>첫 회독 목표 <b>' + esc(E.addDays(examDate, -num(state.settings.reserveDays))) + '</b></div><div>마무리 복습 <b>시험 전 ' + num(state.settings.reserveDays) + '일</b></div><div>오늘 기록 <b>' + num(s.reviewsToday) + '회 응답 · ' + num(s.studyMinutesToday).toFixed(1) + '분</b></div></div><div class="ex-day-strip" aria-label="최근 14일 실제 응답 기록">' + activityStrip() + '</div><p class="ex-muted" style="margin-top:9px">접속만으로 진도가 오르지 않습니다. 숙련은 자가채점·퀴즈 기록에 따른 지표입니다.</p></div></div>' +
+      '<div class="ex-small-lines"><div>숙련 기준 <b>서로 다른 3일에 성공</b></div><div>첫 회독 목표 <b>' + esc(p.coverageDeadline) + '</b></div><div>마무리 복습 <b>시험 전 ' + num(state.settings.reserveDays) + '일</b></div><div>오늘 기록 <b>' + num(s.reviewsToday) + '회 응답 · ' + num(s.studyMinutesToday).toFixed(1) + '분</b></div></div><div class="ex-day-strip" aria-label="최근 14일 실제 응답 기록">' + activityStrip() + '</div><p class="ex-muted" style="margin-top:9px">접속만으로 진도가 오르지 않습니다. 숙련은 자가채점·퀴즈 기록에 따른 지표입니다.</p></div></div>' +
       '<div id="exam-settings" class="ex-card ex-settings" ' + (settingsOpen ? '' : 'hidden') + '><div class="ex-row ex-between"><h2>시험 계획</h2><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="settings">닫기</button></div><form id="exam-settings-form"><div class="ex-settings-grid"><label class="ex-field">시험일<input name="examDate" type="date" value="' + esc(examDate) + '" required min="2020-01-01" max="2100-12-31"></label><label class="ex-field">하루 학습 가능 시간<input name="dailyMinutes" type="number" min="5" max="600" step="5" value="' + num(state.settings.dailyMinutes) + '" required><small>분 · 필요한 양을 숨기지 않고 비교합니다.</small></label><label class="ex-field">마무리 복습 기간<input name="reserveDays" type="number" min="0" max="60" value="' + num(state.settings.reserveDays) + '" required><small>일 · 이 기간 전에 새 내용을 한 번씩 봅니다.</small></label></div><p class="ex-muted">예상 시간은 초기에는 항목당 약 45초, 기록이 쌓이면 실제 응답 시간을 바탕으로 계산합니다. 시험 합격이나 완전 암기를 보장하는 수치는 아닙니다.</p><div class="ex-row" style="margin-top:15px"><button class="ex-btn ex-btn-primary" type="submit">계획 적용</button><span id="exam-settings-error" class="ex-alert" role="alert"></span></div></form></div>' +
-      forecastMarkup(p) + '<div class="ex-section"><div class="ex-section-header"><h2>과목별 기억 지도</h2><div class="ex-legend"><span><i class="ex-dot"></i>학습 중</span><span><i class="ex-dot ex-dot-master"></i>숙련</span></div></div><div class="ex-topics">' + topicsSummary().map(function (t) {
+      observationMarkup(reversal) + forecastMarkup(p) + '<div class="ex-section"><div class="ex-section-header"><h2>과목별 기억 지도</h2><div class="ex-legend"><span><i class="ex-dot"></i>학습 중</span><span><i class="ex-dot ex-dot-master"></i>숙련</span></div></div><div class="ex-topics">' + topicsSummary().map(function (t) {
         return '<article class="ex-topic"><div class="ex-row ex-between"><h3 class="ex-topic-name">' + esc(t.label) + '</h3><span class="ex-topic-count">' + t.total + '개</span></div><div class="ex-topic-meta">접함 ' + t.seen + ' · 숙련 ' + t.mastered + ' · 복습 ' + t.due + '</div>' + track(t.seen, t.mastered, t.total) + '<div class="ex-row"><button class="ex-btn" data-action="topic" data-topic="' + esc(t.id) + '">이 과목 회상</button><button class="ex-btn ex-btn-quiet" data-action="tool" data-tool="' + esc(t.tool) + '">관련 학습도구 ↗</button></div></article>';
       }).join('') + '</div></div>' +
       '<div class="ex-section"><div class="ex-section-header"><h2>한 번 더 도전</h2><span class="ex-muted">추가 연습도 기록에 반영됩니다.</span></div><div class="ex-challenges"><div class="ex-challenge"><h3>약점 재대결</h3><p>최근 오답과 불확실한 항목을 먼저 다시 꺼냅니다.</p><button class="ex-btn ex-btn-small" data-action="weak">약점 5개</button></div><div class="ex-challenge"><h3>혼합 회상 20</h3><p>과목을 섞어 단서 없이 설명합니다. 자가채점으로 확인합니다.</p><button class="ex-btn ex-btn-small" data-action="mock">20개 도전</button></div><div class="ex-challenge"><h3>내일도 떠오를까?</h3><p>같은 날 반복은 숙련 일수에 중복 반영하지 않습니다.</p><button class="ex-btn ex-btn-small" data-action="start">오늘 계획 계속</button></div></div></div>' +
@@ -147,7 +255,7 @@
         else if (action === 'resume') resume();
         else if (action === 'weak') start('weak', 5);
         else if (action === 'mock') start('mock', 20);
-        else if (action === 'rescue') start('weak', 2, null, true);
+        else if (action === 'rescue') start('today', 2, null, true);
         else if (action === 'topic') start('topic', 12, btn.dataset.topic);
         else if (action === 'tool') openTool(btn.dataset.tool);
         else if (action === 'settings') { settingsOpen = !settingsOpen; var form = root.querySelector('#exam-settings'); form.hidden = !settingsOpen; if (settingsOpen) form.scrollIntoView({block:'nearest', behavior:reducedMotion() ? 'instant' : 'smooth'}); }
@@ -164,104 +272,186 @@
       refreshState();
       state.settings = Object.assign({}, state.settings, {examDate:next, dailyMinutes:minutes, reserveDays:reserve});
       state = E.normalizeState(state, C, day());
-      persist(); settingsOpen = false; notice = '시험일까지 남은 분량으로 계획을 다시 계산했습니다.'; dashboard(); announce(notice);
+      var saved = persist(); settingsOpen = false; notice = saved ? '시험일까지 남은 분량으로 계획을 다시 계산했습니다.' : storageWarning; dashboard(); announce(notice);
     });
     root.querySelector('#exam-import-file').addEventListener('change', function (ev) { var file = ev.target.files && ev.target.files[0]; if (file) importFile(file); });
+    bindReversal(dashboard);
   }
   function reducedMotion() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
   function openTool(tool) {
-    if (tool && typeof window.__activate === 'function') { if (activeSession) saveSession(); window.__activate(tool); }
+    if (tool && typeof window.__activate === 'function') { if (activeSession) { prepareToolVisit(); saveSession(); } window.__activate(tool); }
+  }
+  function prepareToolVisit() {
+    var draft = currentDraft(), card = activeSession && cardMap[activeSession.ids[activeSession.index]];
+    if (!draft || !card || draft.revealed) return;
+    freezeOriginal(card); draft.usedHint = true; usedHint = true; exposeCurrent(card);
   }
   function stopLegacySession() { if (window.HubSession && typeof window.HubSession.cancel === 'function') window.HubSession.cancel(); }
+  function rolloverSession() {
+    if (!activeSession || activeSession.day === day()) return false;
+    saveSession();
+    notice = '한국 시간 기준으로 날짜가 바뀌었습니다. 이전 응답을 오늘의 첫 무힌트 성공으로 바꾸지 않고, 새 오늘 계획에서 시작합니다.';
+    dashboard(); announce(notice); return true;
+  }
   function start(mode, limit, topic, rescue) {
     stopLegacySession();
     refreshState();
     var cards = E.buildSession(C, state, {mode:mode, limit:limit, topic:topic, today:day(), seed:Date.now()});
     if (!cards.length && (mode === 'today' || rescue)) cards = E.buildSession(C, state, {mode:'mock', limit:rescue ? 2 : limit, today:day()});
     if (!cards.length) { notice = mode === 'weak' ? '현재 표시할 약점이 없습니다. 오늘 학습이나 혼합 회상을 시작해 보세요.' : '이 조건에 해당하는 항목이 없습니다.'; dashboard(); return; }
-    activeSession = {version:1, day:day(), mode:mode, topic:topic || null, rescue:!!rescue, ids:cards.map(function (c) { return c.id; }), index:0, initialCount:cards.length, results:[], retries:{}};
-    feedback = ''; saveSession(); renderCard();
+    activeSession = {version:1, sessionId:'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10), day:day(), mode:mode, topic:topic || null, rescue:!!rescue, ids:cards.map(function (c) { return c.id; }), index:0, initialCount:cards.length, results:[], retries:{}, drafts:{}};
+    startedAt = 0; elapsedBeforePause = 0; feedback = ''; saveSession(); renderCard();
   }
-  function resume() { stopLegacySession(); activeSession = getPending(); if (!activeSession) { start('today', 12); return; } feedback = '중단했던 위치부터 이어갑니다.'; renderCard(); }
-  function labelMode() { if (activeSession.rescue) return '2분 복귀'; return ({today:'오늘의 학습', weak:'약점 재대결', mock:'혼합 회상', topic:'과목 집중'})[activeSession.mode] || '회상 연습'; }
+  function resume() { stopLegacySession(); activeSession = getPending(); if (!activeSession) { start('today', 12); return; } feedback = '중단했던 질문과 원답부터 이어갑니다.'; renderCard(); }
+  function labelMode() { if (activeSession.rescue) return '첫 2분 · 짧은 세트'; return ({today:'오늘의 학습', weak:'약점 재대결', mock:'혼합 회상', topic:'주제 집중'})[activeSession.mode] || '회상 연습'; }
+  function markStarted() {
+    if (rolloverSession()) return false;
+    var draft = currentDraft();
+    if (!draft || draft.revealed) return false;
+    if (!draft.started) {
+      draft.started = true;
+      startedAt = document.hidden ? 0 : Date.now();
+      refreshState();
+      state = E.recordStart(state, {today:day(), now:Date.now()});
+      persist();
+    }
+    var oral = root && root.querySelector('#exam-recall-start'), note = root && root.querySelector('#exam-attempt-note');
+    if (oral) oral.hidden = true;
+    if (note) note.textContent = '회상을 시작했습니다. 답을 확인하기 전 생각을 남겨두세요.';
+    saveSession();
+    return true;
+  }
+  function freezeOriginal(card) {
+    var draft = currentDraft(), scratch = root && root.querySelector('#exam-scratch');
+    if (!draft) return;
+    if (draft.originalAnswer === null) {
+      if (scratch) draft.text = scratch.value;
+      draft.originalAnswer = draft.text || (draft.choiceValue === null ? '' : draft.choiceValue);
+    }
+    if (scratch) scratch.readOnly = true;
+  }
+  function exposeCurrent(card) {
+    var draft = currentDraft();
+    refreshState();
+    state = E.recordExposure(state, card.id, {today:day(), attemptId:draft.attemptId});
+    persist();
+  }
   function choiceMarkup(card) {
-    selectedChoice = null; usedHint = false;
-    sessionChoices = Array.isArray(card.choices) ? card.choices.slice() : [];
-    for (var i = sessionChoices.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var tmp = sessionChoices[i]; sessionChoices[i] = sessionChoices[j]; sessionChoices[j] = tmp; }
+    var draft = currentDraft();
+    sessionChoices = draft.choices.slice();
+    selectedChoice = draft.choiceValue === null ? null : sessionChoices.indexOf(draft.choiceValue);
+    if (selectedChoice < 0) selectedChoice = null;
+    usedHint = draft.usedHint;
     if (!sessionChoices.length) return '';
-    return (card.requiresChoices ? '<p class="ex-muted">원문 선택지에서 고르세요.</p>' : '<button class="ex-btn ex-btn-quiet ex-btn-small" id="exam-choice-hint">선택지 힌트 보기</button>') + '<div id="exam-choices" class="ex-choices" ' + (card.requiresChoices ? '' : 'hidden') + '>' + sessionChoices.map(function (v, n) { return '<button type="button" class="ex-choice" data-choice="' + n + '" aria-pressed="false"><span class="ex-choice-index">' + (n + 1) + '</span><span>' + esc(v) + '</span><span class="ex-choice-verdict"></span></button>'; }).join('') + '</div>';
+    return (card.requiresChoices ? '<p class="ex-muted">원문 선택지에서 고르세요. 선택형 응답은 첫 무힌트 회상과 따로 기록합니다.</p>' : '<button class="ex-btn ex-btn-quiet ex-btn-small" id="exam-choice-hint"' + (draft.usedHint || draft.revealed ? ' hidden' : '') + '>선택지 힌트 보기</button>') + '<div id="exam-choices" class="ex-choices" ' + (card.requiresChoices || draft.usedHint ? '' : 'hidden') + '>' + sessionChoices.map(function (v, n) { return '<button type="button" class="ex-choice" data-choice="' + n + '" aria-pressed="' + (selectedChoice === n) + '"' + (draft.revealed ? ' disabled' : '') + '><span class="ex-choice-index">' + (n + 1) + '</span><span>' + esc(v) + '</span><span class="ex-choice-verdict"></span></button>'; }).join('') + '</div>';
+  }
+  function answerMarkup(card, draft) {
+    var record = state.records[card.id], first = record && record.reversal && record.reversal.firstAnswer;
+    var original = draft.originalAnswer || (draft.started ? '말로 회상 · 입력한 답 없음' : '입력한 답 없음 · 회상 시작 기록 없음');
+    return '<div class="ex-answer-comparison"><div class="ex-original"><div class="ex-answer-label">' + (draft.usedHint ? '힌트 전 원답 · 보존' : '확인 전 원답 · 보존') + '</div><p>' + esc(original) + '</p>' + (draft.choiceValue !== null && draft.choiceValue !== draft.originalAnswer ? '<p class="ex-selected-answer"><span>선택한 답</span>' + esc(draft.choiceValue) + '</p>' : '') + '</div><div class="ex-answer"><div class="ex-answer-label">정답 · 비교</div>' + esc(card.answer) + '</div></div>' + (card.detail ? '<div class="ex-detail">' + esc(card.detail) + '</div>' : '') + (first && first.day === day() && first.attemptId !== draft.attemptId ? '<details class="ex-prior-answer"><summary>오늘 첫 응답의 원답 보기</summary><p>' + esc(first.originalAnswer || '입력한 답 없음 · 말로 회상') + '</p></details>' : '') + '<p class="ex-muted ex-grade-help">' + (draft.usedHint ? '힌트를 사용했습니다. 원답을 보존하고 다시 확인할 항목으로 남깁니다.' : !draft.started ? '회상 시작 없이 정답을 확인했습니다. 이번 응답은 첫 무힌트 성공에 포함되지 않습니다.' : '말로 답한 경우도 직접 정답과 비교해 채점합니다. 맞힌 뒤의 교정은 첫 응답을 바꾸지 않습니다.') + '</p><div class="ex-grades" aria-label="회상 결과 자가채점"><button class="ex-btn ex-grade" data-grade="0">1 · 몰랐음<small>다시 연습</small></button><button class="ex-btn ex-grade" data-grade="1">2 · 헷갈림<small>다시 확인</small></button><button class="ex-btn ex-grade" data-grade="2">3 · 맞혔음<small>스스로 회상</small></button><button class="ex-btn ex-grade" data-grade="3">4 · 바로 떠오름<small>확실하게 회상</small></button></div>';
+  }
+  function applyRevealed(card, draft) {
+    var area = root.querySelector('#exam-answer-area');
+    area.hidden = false; area.innerHTML = answerMarkup(card, draft);
+    root.querySelector('#exam-reveal').hidden = true;
+    root.querySelector('#exam-scratch').readOnly = true;
+    var oral = root.querySelector('#exam-recall-start'); if (oral) oral.hidden = true;
+    var incorrect = (card.requiresChoices && selectedChoice === null) || (selectedChoice !== null && sessionChoices[selectedChoice] !== card.answer);
+    root.querySelectorAll('[data-choice]').forEach(function (b) { b.disabled = true; var n = Number(b.dataset.choice); if (sessionChoices[n] === card.answer) { b.dataset.correct = 'true'; b.querySelector('.ex-choice-verdict').textContent = '✓ 정답'; } else if (n === selectedChoice) b.querySelector('.ex-choice-verdict').textContent = '선택 · 오답'; });
+    root.querySelectorAll('[data-grade]').forEach(function (b) { if ((incorrect || usedHint) && Number(b.dataset.grade) >= 2) b.disabled = true; b.addEventListener('click', function () { grade(Number(b.dataset.grade)); }); });
   }
   function renderCard() {
     if (!ensureRoot() || !activeSession) return;
+    if (rolloverSession()) return;
     announce(storageWarning || '');
     if (activeSession.index >= activeSession.ids.length) { checkpoint(); return; }
     var card = cardMap[activeSession.ids[activeSession.index]];
     if (!card) { activeSession.index++; renderCard(); return; }
     var topic = C.topics.find(function (t) { return t.id === card.topic; });
-    var r = state.records[card.id], dates = r && Array.isArray(r.successDays) ? r.successDays.length : 0;
-    revealed = false; startedAt = document.hidden ? 0 : Date.now(); elapsedBeforePause = 0;
-    root.innerHTML = '<div class="ex-study"><div class="ex-study-head"><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="pause">← 계획으로</button><div class="ex-study-meta">' + esc(labelMode()) + ' · ' + (activeSession.index + 1) + '/' + activeSession.ids.length + '</div></div><div class="ex-track" role="progressbar" aria-label="세트 진행" aria-valuenow="' + pct(activeSession.index, activeSession.ids.length) + '" aria-valuemin="0" aria-valuemax="100"><span style="width:' + pct(activeSession.index, activeSession.ids.length) + '%"></span></div><div class="ex-study-status" role="status">' + esc(feedback) + '</div><article class="ex-card ex-question-card"><div class="ex-row ex-between"><div class="ex-eyebrow">' + esc(topic ? topic.label : card.topic) + '</div><span class="ex-muted">' + (r && r.seen ? '성공한 날짜 ' + Math.min(3, dates) + '/3' : '처음 만나는 항목') + '</span></div><h2 class="ex-question">' + esc(card.prompt) + '</h2>' + choiceMarkup(card) + '<label class="ex-field">먼저 떠올린 답 <span class="ex-muted">말로 답하거나, 필요한 경우 적어보세요.</span><textarea class="ex-textarea" id="exam-scratch" rows="2" placeholder="답을 떠올린 뒤 정답을 확인하세요. 입력은 선택입니다." autocomplete="off"></textarea></label><button class="ex-btn ex-btn-primary ex-reveal" id="exam-reveal">정답 확인 <span class="ex-muted" style="color:inherit">· Space</span></button><div id="exam-answer-area" hidden><div class="ex-answer"><div class="ex-answer-label">ANSWER</div>' + esc(card.answer) + '</div>' + (card.detail ? '<div class="ex-detail">' + esc(card.detail) + '</div>' : '') + '<div class="ex-grades" aria-label="회상 결과 자가채점"><button class="ex-btn ex-grade" data-grade="0">1 · 몰랐음<small>다시 연습</small></button><button class="ex-btn ex-grade" data-grade="1">2 · 헷갈림<small>다시 확인</small></button><button class="ex-btn ex-grade" data-grade="2">3 · 맞혔음<small>스스로 회상</small></button><button class="ex-btn ex-grade" data-grade="3">4 · 바로 떠오름<small>확실하게 회상</small></button></div></div></article><div class="ex-study-foot"><span>정답을 보고 알았던 경우에는 ‘몰랐음’ 또는 ‘헷갈림’을 선택하세요.</span><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="source">' + esc(sourceLabels[card.tool] || '관련 학습도구') + ' ↗</button></div></div>';
-    root.querySelector('[data-action="pause"]').addEventListener('click', function () { saveSession(); dashboard(); announce('중간 위치를 저장했습니다. 이어서 학습할 수 있습니다.'); });
+    var r = state.records[card.id], dates = r && Array.isArray(r.successDays) ? r.successDays.length : 0, draft = currentDraft();
+    revealed = draft.revealed; elapsedBeforePause = draft.elapsedMs; startedAt = draft.started && !document.hidden ? Date.now() : 0;
+    root.innerHTML = '<div class="ex-study"><div class="ex-study-head"><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="pause">← 계획으로</button><div class="ex-study-meta">' + esc(labelMode()) + ' · ' + (activeSession.index + 1) + '/' + activeSession.ids.length + '</div></div><div class="ex-track" role="progressbar" aria-label="세트 진행" aria-valuenow="' + pct(activeSession.index, activeSession.ids.length) + '" aria-valuemin="0" aria-valuemax="100"><span style="width:' + pct(activeSession.index, activeSession.ids.length) + '%"></span></div><div class="ex-study-status" role="status">' + esc(feedback) + '</div>' + (activeSession.rescue ? '<p class="ex-muted ex-rescue-note">착수 목표 2분 · 최대 2문항의 짧은 세트입니다. 시간 제한은 없으며, 언제든 계획으로 돌아갈 수 있습니다.</p>' : '') + '<article class="ex-card ex-question-card"><div class="ex-row ex-between"><div class="ex-eyebrow">' + esc(topic ? topic.label : card.topic) + '</div><span class="ex-muted">' + (r && r.seen ? '기존 숙련 지표 · 성공 날짜 ' + Math.min(3, dates) + '/3' : '처음 만나는 항목') + '</span></div><h2 class="ex-question">' + esc(card.prompt) + '</h2>' + choiceMarkup(card) + '<label class="ex-field" for="exam-scratch">먼저 떠올린 답 <span class="ex-muted">입력은 선택입니다. 정답·힌트를 본 뒤 원답은 바뀌지 않습니다.</span><textarea class="ex-textarea" id="exam-scratch" rows="3" maxlength="2000" placeholder="핵심만 적거나 아래에서 말로 회상을 시작하세요." autocomplete="off"' + (draft.originalAnswer !== null ? ' readonly' : '') + '>' + esc(draft.text) + '</textarea></label><div class="ex-recall-actions"><button class="ex-btn ex-btn-small" id="exam-recall-start"' + (draft.started || draft.revealed ? ' hidden' : '') + '>말로 회상 시작</button><p id="exam-attempt-note" class="ex-muted">' + (draft.originalAnswer !== null ? '확인 전 원답이 보존되어 있습니다.' : draft.started ? '회상을 시작했습니다. 생각한 답을 정답과 비교해 주세요.' : '입력·선택·말로 회상 시작부터 시간을 기록합니다. 구술 답은 자가채점입니다.') + '</p></div><button class="ex-btn ex-btn-primary ex-reveal" id="exam-reveal"' + (draft.revealed ? ' hidden' : '') + '>정답 확인 <span class="ex-muted" style="color:inherit">· Space</span></button><div id="exam-answer-area" hidden></div></article><div class="ex-study-foot"><span>정답을 보고 알았던 경우에는 ‘몰랐음’ 또는 ‘헷갈림’을 선택하세요.</span><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="source">' + esc(sourceLabels[card.tool] || '관련 학습도구') + ' · 힌트로 보기 ↗</button></div></div>';
+    root.querySelector('[data-action="pause"]').addEventListener('click', function () { var saved = saveSession(); dashboard(); announce(saved ? '중간 위치와 원답을 저장했습니다. 이어서 학습할 수 있습니다.' : storageWarning); });
     root.querySelector('[data-action="source"]').addEventListener('click', function () { openTool(card.tool); });
     root.querySelector('#exam-reveal').addEventListener('click', reveal);
+    root.querySelector('#exam-recall-start').addEventListener('click', markStarted);
+    root.querySelector('#exam-scratch').addEventListener('input', function (ev) { var d = currentDraft(); if (d.revealed || d.originalAnswer !== null) return; d.text = ev.target.value; markStarted(); });
     var hint = root.querySelector('#exam-choice-hint');
-    if (hint) hint.addEventListener('click', function () { usedHint = true; hint.hidden = true; root.querySelector('#exam-choices').hidden = false; announce('선택지 힌트를 사용한 응답으로 기록합니다.'); });
-    root.querySelectorAll('[data-choice]').forEach(function (b) { b.addEventListener('click', function () { selectedChoice = Number(b.dataset.choice); root.querySelectorAll('[data-choice]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); }); });
-    root.querySelectorAll('[data-grade]').forEach(function (b) { b.addEventListener('click', function () { grade(Number(b.dataset.grade)); }); });
+    if (hint) hint.addEventListener('click', function () { var d = currentDraft(); if (d.revealed) return; freezeOriginal(card); d.usedHint = true; usedHint = true; hint.hidden = true; root.querySelector('#exam-choices').hidden = false; exposeCurrent(card); saveSession(); root.querySelector('#exam-attempt-note').textContent = '힌트 전 원답을 보존했습니다. 이번 응답은 무힌트 성공과 구별합니다.'; announce('선택지 힌트를 사용한 응답으로 기록합니다.'); });
+    root.querySelectorAll('[data-choice]').forEach(function (b) { b.addEventListener('click', function () { if (revealed || !markStarted()) return; var d = currentDraft(); if (!d) return; selectedChoice = Number(b.dataset.choice); d.choiceValue = sessionChoices[selectedChoice]; root.querySelectorAll('[data-choice]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); saveSession(); }); });
+    if (draft.revealed) applyRevealed(card, draft);
+    saveSession();
     root.scrollIntoView({block:'start'});
   }
   function reveal() {
     if (!activeSession || revealed) return;
-    revealed = true;
-    root.querySelector('#exam-answer-area').hidden = false;
-    root.querySelector('#exam-reveal').hidden = true;
-    var card = cardMap[activeSession.ids[activeSession.index]], incorrect = (card.requiresChoices && selectedChoice === null) || (selectedChoice !== null && sessionChoices[selectedChoice] !== card.answer);
-    root.querySelectorAll('[data-choice]').forEach(function (b) { b.disabled = true; var n = Number(b.dataset.choice); if (sessionChoices[n] === card.answer) { b.dataset.correct = 'true'; b.querySelector('.ex-choice-verdict').textContent = '✓ 정답'; } else if (n === selectedChoice) b.querySelector('.ex-choice-verdict').textContent = '선택 · 오답'; });
-    if (incorrect) root.querySelectorAll('[data-grade]').forEach(function (b) { if (Number(b.dataset.grade) >= 2) b.disabled = true; });
-    if (usedHint) root.querySelectorAll('[data-grade]').forEach(function (b) { if (Number(b.dataset.grade) >= 2) b.disabled = true; });
-    announce(incorrect ? '선택한 답은 오답입니다. 정답과 차이를 확인하고 다시 연습으로 남깁니다.' : usedHint ? '힌트를 사용한 항목은 다시 확인할 대상으로 남깁니다.' : '정답을 확인했습니다. 스스로 떠올린 답과 비교해 채점하세요.');
+    if (rolloverSession()) return;
+    var card = cardMap[activeSession.ids[activeSession.index]], draft = currentDraft();
+    freezeOriginal(card); draft.revealed = true; revealed = true;
+    exposeCurrent(card); saveSession(); applyRevealed(card, draft);
+    var incorrect = (card.requiresChoices && selectedChoice === null) || (selectedChoice !== null && sessionChoices[selectedChoice] !== card.answer);
+    announce(incorrect ? '선택한 답은 오답입니다. 원답과 정답의 차이를 확인하고 다시 연습으로 남깁니다.' : usedHint ? '힌트를 사용한 항목은 다시 확인할 대상으로 남깁니다.' : '원답을 보존했습니다. 정답과 비교해 채점하세요.');
   }
   function grade(value) {
     if (busy || !activeSession || !revealed || value < 0 || value > 3) return;
     busy = true;
-    var id = activeSession.ids[activeSession.index], seconds = Math.min(300, Math.max(1, Math.round((elapsedBeforePause + (startedAt ? Date.now() - startedAt : 0)) / 1000)));
-    var card = cardMap[id];
+    captureTime();
+    var id = activeSession.ids[activeSession.index], draft = currentDraft(), seconds = Math.round(draft.elapsedMs / 1000), card = cardMap[id];
     if (usedHint || (selectedChoice !== null && sessionChoices[selectedChoice] !== card.answer)) value = Math.min(value, 1);
     if (card.requiresChoices && selectedChoice === null) value = 0;
+    var choice = card.requiresChoices || usedHint || selectedChoice !== null;
     refreshState();
-    state = E.review(state, id, value, {today:day(), now:Date.now(), seconds:seconds, evidence:(card.requiresChoices || usedHint || selectedChoice !== null) ? 'choice' : 'recall'});
+    state = E.review(state, id, value, {today:day(), now:Date.now(), seconds:seconds, evidence:choice ? 'choice' : 'recall', unaided:draft.started && !choice && activeSession.day === day(), usedHint:draft.usedHint, originalAnswer:draft.originalAnswer || '', attemptId:draft.attemptId});
     persist();
     var result = state.lastReview || {}, r = state.records[id] || {};
-    activeSession.results.push({id:id, grade:value});
+    if (result.duplicate && Number.isInteger(result.grade)) value = result.grade;
+    activeSession.results.push({id:id, grade:value, attemptId:draft.attemptId, seconds:seconds, reversalStatus:result.reversalStatus || null});
     if (value < 2 && !activeSession.rescue && !activeSession.retries[id]) {
       activeSession.retries[id] = 1;
       var insertion = Math.min(activeSession.ids.length, activeSession.index + 4);
       activeSession.ids.splice(insertion, 0, id);
-      feedback = '헷갈린 연결을 찾았습니다. 다른 항목 뒤에 한 번 더 확인합니다.';
-    } else if (value < 2) feedback = '다시 볼 항목으로 남겼습니다. 이 항목은 아직 오늘 복습에 남아 있습니다.';
-    else if (r.mastered) feedback = '서로 다른 날짜의 회상 성공이 쌓였습니다. 다음 복습일 ' + (result.due || r.due || '예정');
-    else feedback = '회상 성공. 다음 복습일 ' + (result.due || r.due || '예정') + ' · 같은 날 재시도는 숙련 일수에 중복 반영하지 않습니다.';
-    activeSession.index++;
+      feedback = '원답을 남겼습니다. 다른 질문 뒤에 교정하고, 다음 날에도 다시 확인합니다.';
+    } else if (value < 2) feedback = '다시 볼 항목으로 남겼습니다. 오늘 교정과 다음 날 재검사를 따로 확인합니다.';
+    else if (result.reversalStatus === 'recovered') feedback = '실제 회복 1개. 과거 오답을 날짜가 지난 첫 무힌트 회상에서 맞혔습니다.';
+    else if (result.reversalStatus === 'corrected') feedback = '오늘 교정했습니다. 첫 응답의 원답은 그대로 두고, 다음 날 첫 회상에서 다시 확인합니다.';
+    else if (r.mastered) feedback = '기존 숙련 기준인 서로 다른 날짜의 성공이 쌓였습니다. 첫 무힌트 지표는 따로 기록합니다.';
+    else feedback = '응답을 기록했습니다. 다음 복습일 ' + (result.due || r.due || '예정') + ' · 같은 날 반복은 첫 무힌트 성공을 늘리지 않습니다.';
+    activeSession.index++; startedAt = 0; elapsedBeforePause = 0;
     saveSession(); busy = false; renderCard();
+  }
+  function recordBundle(finished) {
+    refreshState();
+    if (!state.reversal || typeof state.reversal !== 'object') state.reversal = {featureVersion:1};
+    if (!state.reversal.uiDays || typeof state.reversal.uiDays !== 'object' || Array.isArray(state.reversal.uiDays)) state.reversal.uiDays = {};
+    var rows = state.reversal.uiDays, date = day(), row = rows[date];
+    if (!row || typeof row !== 'object' || Array.isArray(row)) row = {};
+    var sessions = Array.isArray(row.completedSessions) ? row.completedSessions.filter(function (id) { return typeof id === 'string'; }) : [];
+    if (finished.sessionId && sessions.indexOf(finished.sessionId) < 0) sessions.push(finished.sessionId);
+    row.completedSessions = sessions; rows[date] = row;
+    persist();
   }
   function checkpoint() {
     var finished = activeSession, results = finished.results || [], unique = new Map();
     results.forEach(function (r) { unique.set(r.id, r.grade); });
     var correct = Array.from(unique.values()).filter(function (g) { return g >= 2; }).length;
     var missed = Array.from(unique.entries()).filter(function (x) { return x[1] < 2; });
-    var p = E.getPlan(C, state, day());
-    activeSession = null; saveSession(); pendingSession = null;
-    root.innerHTML = '<div class="ex-study"><div class="ex-card ex-checkpoint"><div class="ex-eyebrow">SESSION COMPLETE</div><h1>' + (finished.rescue ? '다시 시작했습니다.' : '한 세트, 기억에 더했습니다.') + '</h1><p class="ex-soft">' + (finished.rescue ? '2분 복귀를 기록했습니다. 남은 하루 목표는 그대로 확인할 수 있습니다.' : '지금 맞힌 항목은 다음 복습일에 다시 만납니다.') + '</p><div class="ex-result-grid"><div><b>' + unique.size + '</b><span>다룬 항목</span></div><div><b>' + correct + '</b><span>마지막 회상 성공</span></div><div><b>' + missed.length + '</b><span>재확인 필요</span></div></div><p class="ex-soft">오늘 남은 계획 <strong>' + num(p.totalRemaining) + '개</strong> · 예상 ' + Math.ceil(num(p.remainingMinutes)) + '분</p>' + (missed.length ? '<ul class="ex-review-list">' + missed.slice(0, 4).map(function (x) { var c = cardMap[x[0]]; return '<li>' + esc(c.prompt) + '<span>' + esc(c.answer) + '</span></li>'; }).join('') + '</ul>' : '<p class="ex-muted" style="margin:20px 0">지금의 성공을 며칠 뒤에도 재현하면 숙련으로 바뀝니다.</p>') + '<div class="ex-row" style="justify-content:center;margin-top:24px"><button class="ex-btn ex-btn-primary" id="exam-next-set">' + (p.totalRemaining ? '다음 12개 이어가기' : '혼합 회상 더 하기') + '</button><button class="ex-btn" id="exam-finish">오늘 계획 보기</button></div></div></div>';
+    recordBundle(finished);
+    var p = E.getPlan(C, state, day()), reversal = E.getReversal(C, state, day());
+    var recovered = results.filter(function (r) { return r.reversalStatus === 'recovered'; }).length, corrected = results.filter(function (r) { return r.reversalStatus === 'corrected'; }).length;
+    activeSession = null; startedAt = 0; elapsedBeforePause = 0; saveSession(); pendingSession = null;
+    root.innerHTML = '<div class="ex-study"><div class="ex-card ex-checkpoint"><div class="ex-eyebrow">SESSION COMPLETE</div><h1>' + (finished.rescue ? '첫 질문부터 시작했습니다.' : '한 묶음을 마쳤습니다.') + '</h1><p class="ex-soft">' + (finished.rescue ? '짧은 세트 완료입니다. 2분은 착수 목표이며, 오늘 남은 전체 분량은 아래에서 확인합니다.' : '방금의 교정과 날짜를 넘긴 첫 성공을 따로 확인합니다.') + '</p><div class="ex-result-grid"><div><b>' + unique.size + '</b><span>다룬 항목</span></div><div><b>' + corrected + '</b><span>이번 묶음 당일 교정</span></div><div><b>' + recovered + '</b><span>이번 묶음 실제 회복</span></div></div><p class="ex-muted">마지막 응답 성공 ' + correct + '개 · 재확인 필요 ' + missed.length + '개 · 응답 시간 ' + (results.reduce(function (sum, r) { return sum + num(r.seconds); }, 0) / 60).toFixed(1) + '분</p><p class="ex-soft ex-remaining-plan">오늘 남은 계획 <strong>' + num(p.totalRemaining) + '개</strong> · 예상 ' + Math.ceil(num(p.remainingMinutes)) + '분</p>' + (missed.length ? '<details class="ex-missed-details"><summary>다시 볼 원답과 정답 ' + missed.length + '개</summary><ul class="ex-review-list">' + missed.slice(0, 6).map(function (x) { var c = cardMap[x[0]], record = state.records[x[0]], original = record && record.reversal && record.reversal.lastFailureAnswer; return '<li><b>' + esc(c.prompt) + '</b><span class="ex-missed-original">원답: ' + esc(original && original.originalAnswer || '입력 없음 · 자가채점') + '</span><span>정답: ' + esc(c.answer) + '</span></li>'; }).join('') + '</ul></details>' : '<p class="ex-muted ex-checkpoint-note">당일 정답은 교정의 결과일 수 있습니다. 실제 회복은 다음 날 이후의 첫 무힌트 성공으로 확인합니다.</p>') + '<div class="ex-checkpoint-planning">' + reversalControls(reversal, 'checkpoint') + '</div><div class="ex-row ex-checkpoint-actions"><button class="ex-btn ex-btn-primary" id="exam-next-set">' + (p.totalRemaining ? '다음 12개 이어가기' : '혼합 회상 더 하기') + '</button><button class="ex-btn" id="exam-finish">오늘 계획 보기</button></div></div></div>';
     root.querySelector('#exam-next-set').addEventListener('click', function () { start('today', 12); });
     root.querySelector('#exam-finish').addEventListener('click', dashboard);
-    announce('한 세트를 마쳤습니다. 오늘 남은 계획은 ' + num(p.totalRemaining) + '개입니다.');
+    bindReversal(null);
+    announce('한 묶음을 마쳤습니다. 실제 회복 ' + recovered + '개, 오늘 남은 계획은 ' + num(p.totalRemaining) + '개입니다.');
     root.scrollIntoView({block:'start'});
   }
   function exportBackup() {
+    if (activeSession) captureTime();
     refreshState();
     var legacy = {};
     LEGACY_KEYS.forEach(function (k) { var raw = safeRead(k); if (raw !== null) legacy[k] = raw; });
-    var backup = {format:'meridian-exam-backup', version:1, exportedAt:new Date().toISOString(), exam:state, legacy:legacy, session:parse(safeRead(SESSION_STORAGE))};
+    var backup = {format:'meridian-exam-backup', version:1, exportedAt:new Date().toISOString(), exam:state, legacy:legacy, session:activeSession ? clone(activeSession) : unsavedSession ? clone(unsavedSession) : parse(safeRead(SESSION_STORAGE))};
     if (protectedRaw !== null) backup.unreadableOriginal = protectedRaw;
     var blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'}), url = URL.createObjectURL(blob);
     var a = document.createElement('a'); a.href = url; a.download = 'meridian-study-' + day() + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
@@ -274,7 +464,7 @@
       if (!backup || backup.format !== 'meridian-exam-backup' || backup.version !== 1 || !backup.exam || backup.exam.version !== 1 || !backup.exam.records || typeof backup.exam.records !== 'object' || Array.isArray(backup.exam.records) || Object.keys(backup.exam.records).length > 20000) throw new Error('이 시험 모드에서 내보낸 학습 기록 백업이 아닙니다.');
       if (!backup.exam.settings || !/^\d{4}-\d{2}-\d{2}$/.test(backup.exam.settings.examDate || '') || E.addDays(backup.exam.settings.examDate, 0) !== backup.exam.settings.examDate) throw new Error('백업의 시험 날짜를 확인할 수 없습니다.');
       var next = E.normalizeState(backup.exam, C, day()), changes = {};
-      changes[STORAGE] = JSON.stringify(next);
+      changes[STORAGE] = encodeStoredExam(next);
       if (backup.legacy != null && (typeof backup.legacy !== 'object' || Array.isArray(backup.legacy))) throw new Error('기존 기록 형식이 올바르지 않습니다.');
       LEGACY_KEYS.forEach(function (k) { if (backup.legacy && Object.prototype.hasOwnProperty.call(backup.legacy, k)) { if (typeof backup.legacy[k] !== 'string') throw new Error('기존 기록 형식이 올바르지 않습니다.'); var parsed = JSON.parse(backup.legacy[k]); if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('기존 기록 형식이 올바르지 않습니다.'); changes[k] = backup.legacy[k]; } });
       var dateLabel = typeof backup.exportedAt === 'string' ? backup.exportedAt.slice(0, 10) : '선택한';
@@ -288,7 +478,7 @@
         written.forEach(function (k) { try { if (before[k] === null) localStorage.removeItem(k); else localStorage.setItem(k, before[k]); } catch (e) { rollbackFailed = true; } });
         throw new Error(rollbackFailed ? '저장 공간 문제로 일부 기록을 복원하지 못했습니다. 백업 파일을 보관하고 브라우저 저장 공간을 확보한 뒤 다시 복원해 주세요.' : '복원을 저장하지 못해 이전 기록으로 되돌렸습니다. 저장 공간을 확인해 주세요.');
       }
-      protectedRaw = null; dirty = false; storageWarning = ''; state = next; notice = '학습 기록을 복원했습니다. 기존 도구의 화면은 다시 열면 반영됩니다.'; dashboard(); announce(notice);
+      protectedRaw = null; dirty = false; unsavedSession = null; storageWarning = ''; state = next; notice = '학습 기록을 복원했습니다. 기존 도구의 화면은 다시 열면 반영됩니다.'; dashboard(); announce(notice);
     } catch (err) { notice = '복원 실패: ' + (err && err.message ? err.message : '파일을 확인해 주세요.'); dashboard(); announce(notice); }
   }
   function onLegacyAnswer(ev) {
@@ -310,8 +500,8 @@
     C.coverage.forEach(function (x) { sourceLabels[x.tool] = x.label; });
     loadState();
     window.addEventListener('hub:tabchange', function (ev) {
-      if (activeSession) saveSession();
-      activeSession = null;
+      if (activeSession) { if (ev.detail && ev.detail.id !== 'home') prepareToolVisit(); saveSession(); }
+      activeSession = null; startedAt = 0; elapsedBeforePause = 0;
       var tools = document.getElementById('hub-tool-list'), toggle = document.getElementById('hub-tools-toggle');
       if (tools) tools.hidden = true; if (toggle) toggle.setAttribute('aria-expanded', 'false');
       if (ev.detail && ev.detail.id === 'home') dashboard();
@@ -319,7 +509,7 @@
     window.addEventListener('hub:answer', onLegacyAnswer);
     window.addEventListener('storage', function (ev) { if (ev.key === STORAGE && window.__active === 'home' && !activeSession) dashboard(); });
     window.addEventListener('pagehide', function () { if (activeSession) saveSession(); });
-    document.addEventListener('visibilitychange', function () { if (!activeSession) return; if (document.hidden && startedAt) { elapsedBeforePause += Date.now() - startedAt; startedAt = 0; } else if (!document.hidden) startedAt = Date.now(); });
+    document.addEventListener('visibilitychange', function () { if (!activeSession) return; if (document.hidden) { saveSession(); startedAt = 0; } else if (currentDraft().started) startedAt = Date.now(); });
     document.addEventListener('keydown', function (ev) {
       if (!activeSession || window.__active !== 'home' || ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
       var tag = document.activeElement && document.activeElement.tagName;

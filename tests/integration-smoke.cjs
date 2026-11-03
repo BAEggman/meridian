@@ -425,6 +425,7 @@ async function appStorageContracts(catalog) {
   const filename = path.join(ROOT, 'exam-app.js');
   assert.ok(fs.existsSync(filename), 'exam-app.js must be available');
   const Engine = require(path.join(ROOT, 'exam-engine.js'));
+  const Codec = require(path.join(ROOT, 'exam-storage.js'));
   const day = Engine.localDay();
   const base = Engine.createState(day);
   const card = catalog.cards.find(c => !c.needsVerification);
@@ -439,15 +440,16 @@ async function appStorageContracts(catalog) {
       },
       current: function() { return state; },
       warning: function() { return storageWarning; },
-      persist: persist, refreshState: refreshState, importFile: importFile,
-      loadState: loadState, getPending: getPending, start: start, resume: resume
+      currentSession: function() { return activeSession; },
+      persist: persist, refreshState: refreshState, importFile: importFile, exportBackup: exportBackup,
+      loadState: loadState, getPending: getPending, saveSession: saveSession, start: start, resume: resume
     };
   })();`);
   assert.notEqual(exposed, app, 'Test-only app closure adapter did not match');
 
   function context(initialStorage) {
     const store = new Map(Object.entries(initialStorage || {}));
-    const controls = { reject: () => false, writes: 0 };
+    const controls = { reject: () => false, writes: 0, blobs: [], downloads: [] };
     const localStorage = {
       getItem(key) { return store.has(key) ? store.get(key) : null; },
       setItem(key, value) {
@@ -457,9 +459,18 @@ async function appStorageContracts(catalog) {
       },
       removeItem(key) { store.delete(key); }
     };
-    const window = Object.assign(makeTarget(), { confirm: () => true });
-    const document = Object.assign(makeTarget(), { readyState: 'loading', getElementById: () => null });
-    vm.runInNewContext(exposed, { window, document, localStorage, console, Date, Map, Set, Number, URL, Blob, setTimeout, clearTimeout }, { filename, timeout: 2000 });
+    const window = Object.assign(makeTarget(), { confirm: () => true, MeridianExamStorage: Codec });
+    const document = Object.assign(makeTarget(), {
+      readyState: 'loading', getElementById: () => null, body: makeNode(),
+      createElement() {
+        return Object.assign(makeNode(), { click() { controls.downloads.push(this.download); }, remove() {} });
+      }
+    });
+    const blobURLs = {
+      createObjectURL(blob) { controls.blobs.push(blob); return 'blob:meridian-test'; },
+      revokeObjectURL() {}
+    };
+    vm.runInNewContext(exposed, { window, document, localStorage, console, Date, Map, Set, Number, URL: blobURLs, Blob, setTimeout, clearTimeout }, { filename, timeout: 2000 });
     return { api: window.__examAudit, store, controls, window };
   }
 
@@ -473,7 +484,7 @@ async function appStorageContracts(catalog) {
     'A failed write must not let refreshState overwrite unsaved learning with an older saved state');
   failedSave.controls.reject = () => false;
   assert.equal(failedSave.api.persist(), true);
-  assert.ok(JSON.parse(failedSave.store.get('meridian_exam_v1')).records[card.id].seen);
+  assert.ok(JSON.parse(Codec.decode(failedSave.store.get('meridian_exam_v1'))).records[card.id].seen);
 
   const examSession = context({ meridian_exam_v1: JSON.stringify(base) });
   examSession.api.init(Engine, catalog, base);
@@ -486,6 +497,22 @@ async function appStorageContracts(catalog) {
   examSession.api.resume();
   assert.equal(cancellations, 2, 'Resuming exam study must cancel any pending legacy queue');
   assert.equal(examSession.store.get('meridian_exam_session_v1'), pendingExam);
+
+  const blockedSession = context({ meridian_exam_v1: JSON.stringify(base) });
+  blockedSession.api.init(Engine, catalog, base);
+  blockedSession.controls.reject = key => key === 'meridian_exam_session_v1';
+  blockedSession.api.start('mock', 2);
+  const unsavedId = blockedSession.api.currentSession().sessionId;
+  assert.ok(blockedSession.api.warning());
+  assert.equal(blockedSession.store.has('meridian_exam_session_v1'), false);
+  assert.equal(blockedSession.api.getPending().sessionId, unsavedId,
+    'A failed session write must retain a resumable in-memory attempt');
+  blockedSession.api.exportBackup();
+  const emergencyBackup = JSON.parse(await blockedSession.controls.blobs[0].text());
+  assert.equal(emergencyBackup.session.sessionId, unsavedId);
+  blockedSession.controls.reject = () => false;
+  assert.equal(blockedSession.api.saveSession(), true);
+  assert.equal(JSON.parse(blockedSession.store.get('meridian_exam_session_v1')).sessionId, unsavedId);
 
   const originalExam = JSON.stringify(base), originalLegacy = JSON.stringify({ q: {} });
   const backup = {
@@ -511,7 +538,7 @@ async function appStorageContracts(catalog) {
   restored.api.init(Engine, catalog, base);
   const extraKey = JSON.parse(JSON.stringify(backup)); extraKey.legacy.unrelated = JSON.stringify({ replace: true });
   await restored.api.importFile(file(extraKey));
-  assert.ok(JSON.parse(restored.store.get('meridian_exam_v1')).records[card.id]?.seen, 'Valid restore must persist the selected exam record');
+  assert.ok(JSON.parse(Codec.decode(restored.store.get('meridian_exam_v1'))).records[card.id]?.seen, 'Valid restore must persist the selected exam record');
   assert.ok(JSON.parse(restored.store.get('hub_stats_v1')).q.probe, 'Valid restore must include named legacy records');
   assert.equal(JSON.parse(restored.store.get('hub_session_last')).items, 4, 'Backup restore must preserve the upstream session summary');
   assert.equal(restored.store.get('unrelated'), 'keep', 'Restore must not write arbitrary keys supplied by a file');
@@ -528,12 +555,442 @@ async function appStorageContracts(catalog) {
   await primitiveLegacy.api.importFile(file(malformedLegacy));
   assert.equal(primitiveLegacy.controls.writes, 0, 'Legacy records must be objects, not merely syntactically valid JSON');
 
+  // Exercise the actual exporter and importer with additive feature data. The
+  // previous version-1 format remains a valid import; new records travel inside
+  // exam rather than relying on a second, easily omitted browser-storage key.
+  const yesterday = Engine.addDays(day, -1);
+  let reversal = Engine.setReversalPreferences(Engine.createState(yesterday), {
+    cue: '아침 식사를 마치면 책상에 앉기', plannedTime: '09:10'
+  }, { today: yesterday });
+  reversal = Engine.review(reversal, card.id, 0, {
+    today: yesterday, attemptId: 'backup-original', evidence: 'recall', unaided: true,
+    usedHint: false, originalAnswer: '백업에도 그대로 남겨야 하는 첫 오답', seconds: 27
+  });
+  reversal = Engine.review(reversal, card.id, 2, {
+    today: yesterday, attemptId: 'backup-correction', evidence: 'recall', unaided: true,
+    usedHint: false, originalAnswer: '정답을 본 뒤 교정', seconds: 12
+  });
+  reversal = Engine.reserveFirst(reversal, card.id, { today: yesterday, plannedTime: '09:10' });
+  reversal = Engine.recordReflection(reversal, { today: yesterday, returnIntent: 3 });
+  reversal.reversal.customFutureField = { preserve: true };
+  reversal.records[card.id].reversal.customFutureField = { preserve: 'record' };
+  const selectedRecord = JSON.parse(JSON.stringify(reversal.records[card.id]));
+  const exporter = context({
+    meridian_exam_v1: JSON.stringify(reversal),
+    hub_stats_v1: originalLegacy,
+    hub_session_last: backup.legacy.hub_session_last,
+    unrelated: 'never-export-this'
+  });
+  exporter.api.init(Engine, catalog, reversal);
+  exporter.api.exportBackup();
+  assert.equal(exporter.controls.blobs.length, 1, 'Export must produce a downloadable JSON payload');
+  assert.equal(exporter.controls.downloads[0], `meridian-study-${day}.json`);
+  const exported = JSON.parse(await exporter.controls.blobs[0].text());
+  assert.equal(exported.format, 'meridian-exam-backup');
+  assert.equal(exported.version, 1, 'The additive feature must not invalidate existing backups');
+  assert.equal(exported.exam.version, 1);
+  assert.equal(exported.exam.reversal.featureVersion, 1);
+  assert.deepEqual(exported.exam.records[card.id].reversal.firstAnswer, selectedRecord.reversal.firstAnswer);
+  assert.equal(Object.hasOwn(exported.legacy, 'unrelated'), false);
+
+  const featureRestore = context({ meridian_exam_v1: originalExam,
+    meridian_exam_session_v1: pendingExam, unrelated: 'keep' });
+  featureRestore.api.init(Engine, catalog, base);
+  await featureRestore.api.importFile(file(exported));
+  const importedFeature = JSON.parse(Codec.decode(featureRestore.store.get('meridian_exam_v1')));
+  const importedView = Engine.getReversal(catalog, importedFeature, day);
+  assert.equal(importedView.cue, '아침 식사를 마치면 책상에 앉기');
+  assert.equal(importedView.reservation.cardId, card.id);
+  assert.equal(importedView.startCard.id, card.id);
+  assert.ok(importedView.retestCards.some(item => item.id === card.id));
+  const importedYesterday = importedView.recentDays.find(row => row.day === yesterday);
+  assert.equal(importedYesterday.firstAttempts, 1);
+  assert.equal(importedYesterday.firstCorrect, 0);
+  assert.equal(importedYesterday.corrections, 1);
+  assert.equal(importedYesterday.recoveries, 0);
+  assert.equal(importedYesterday.returnIntent, 3);
+  assert.deepEqual(importedFeature.records[card.id].reversal.firstAnswer, selectedRecord.reversal.firstAnswer);
+  assert.deepEqual(importedFeature.records[card.id].reversal.lastFailureAnswer, selectedRecord.reversal.lastFailureAnswer);
+  assert.deepEqual(importedFeature.reversal.customFutureField, { preserve: true });
+  assert.deepEqual(importedFeature.records[card.id].reversal.customFutureField, { preserve: 'record' });
+  assert.equal(featureRestore.store.get('unrelated'), 'keep');
+  assert.equal(featureRestore.store.has('meridian_exam_session_v1'), false,
+    'Backup restore must keep the established policy of clearing a stale in-progress session');
+  assert.equal(featureRestore.store.get('meridian_exam_v1').startsWith(Codec.prefix), true,
+    'A restored ordinary JSON backup must be written using the compressed storage codec');
+  const freshFeatureRestore = context(Object.fromEntries(featureRestore.store));
+  freshFeatureRestore.api.init(Engine, catalog, base);
+  freshFeatureRestore.api.loadState();
+  assert.equal(Engine.getReversal(catalog, freshFeatureRestore.api.current(), day).reservation.cardId, card.id);
+  assert.deepEqual(JSON.parse(JSON.stringify(freshFeatureRestore.api.current().records[card.id].reversal.firstAnswer)),
+    selectedRecord.reversal.firstAnswer, 'A fresh app must reload the restored compressed original answer');
+
+  // A restore that fails after writing the new record must preserve both the
+  // previous feature state and the still-resumable session.
+  const sessionSnapshot = JSON.stringify({ version: 1, day, ids: [card.id], index: 0, results: [], retries: {} });
+  const priorCompressed = Codec.encode(JSON.stringify(reversal));
+  const featureRollback = context({ meridian_exam_v1: priorCompressed,
+    meridian_exam_session_v1: sessionSnapshot, hub_stats_v1: originalLegacy });
+  featureRollback.api.init(Engine, catalog, reversal);
+  let rejectFeatureOnce = false;
+  featureRollback.controls.reject = key => {
+    if (key === 'hub_stats_v1' && !rejectFeatureOnce) { rejectFeatureOnce = true; return true; }
+    return false;
+  };
+  await featureRollback.api.importFile(file(backup));
+  assert.equal(rejectFeatureOnce, true);
+  assert.equal(featureRollback.store.get('meridian_exam_v1'), priorCompressed,
+    'A failed restore must restore the exact previous compressed storage string');
+  assert.equal(featureRollback.store.get('meridian_exam_session_v1'), sessionSnapshot);
+  const freshRollback = context(Object.fromEntries(featureRollback.store));
+  freshRollback.api.init(Engine, catalog, base);
+  freshRollback.api.loadState();
+  assert.deepEqual(JSON.parse(JSON.stringify(freshRollback.api.current().records[card.id].reversal.firstAnswer)),
+    selectedRecord.reversal.firstAnswer);
+
   const unreadable = context({ meridian_exam_v1: '{broken-json' });
   unreadable.api.init(Engine, catalog, base);
   unreadable.api.loadState();
   assert.equal(unreadable.api.persist(), false);
   assert.equal(unreadable.store.get('meridian_exam_v1'), '{broken-json', 'Unreadable source must remain recoverable');
-  console.log('PASS: failed saves retain in-memory learning; restore rolls back on failure and rejects malformed backups before writes.');
+  const futureRaw = JSON.stringify({ version: 9, settings: {}, records: { future: { kept: true } } });
+  const futureVersion = context({ meridian_exam_v1: futureRaw });
+  futureVersion.api.init(Engine, catalog, base);
+  futureVersion.api.loadState();
+  assert.equal(futureVersion.api.persist(), false);
+  assert.equal(futureVersion.store.get('meridian_exam_v1'), futureRaw);
+
+  const rawCompatible = context({ meridian_exam_v1: originalExam });
+  rawCompatible.api.init(Engine, catalog, learned);
+  rawCompatible.api.loadState();
+  assert.equal(rawCompatible.api.current().version, 1);
+  assert.equal(rawCompatible.api.current().records[card.id], undefined,
+    'An old plain JSON state must be loaded rather than replaced with the in-memory fixture');
+  assert.equal(rawCompatible.api.persist(), true);
+  assert.equal(Codec.decode(rawCompatible.store.get('meridian_exam_v1')), JSON.stringify(rawCompatible.api.current()));
+
+  const malformedCompressed = Codec.prefix + '1:999:00000000:00000000:broken-payload';
+  const corruptPacked = context({ meridian_exam_v1: malformedCompressed });
+  corruptPacked.api.init(Engine, catalog, base);
+  corruptPacked.api.loadState();
+  assert.equal(corruptPacked.api.persist(), false);
+  assert.equal(corruptPacked.store.get('meridian_exam_v1'), malformedCompressed);
+  corruptPacked.api.exportBackup();
+  const corruptBackup = JSON.parse(await corruptPacked.controls.blobs[0].text());
+  assert.equal(corruptBackup.unreadableOriginal, malformedCompressed);
+
+  const corruptedDuringUse = context({ meridian_exam_v1: Codec.encode(JSON.stringify(learned)) });
+  corruptedDuringUse.api.init(Engine, catalog, learned);
+  corruptedDuringUse.store.set('meridian_exam_v1', malformedCompressed);
+  corruptedDuringUse.api.refreshState();
+  assert.equal(corruptedDuringUse.api.persist(), false,
+    'A checksum failure noticed during refresh must protect the source before another save');
+  assert.equal(corruptedDuringUse.store.get('meridian_exam_v1'), malformedCompressed);
+  assert.equal(corruptedDuringUse.api.current().records[card.id].seen, true);
+
+  const missingCodec = context({ meridian_exam_v1: priorCompressed });
+  missingCodec.window.MeridianExamStorage = undefined;
+  missingCodec.api.init(Engine, catalog, base);
+  missingCodec.api.loadState();
+  assert.equal(missingCodec.api.persist(), false);
+  assert.equal(missingCodec.store.get('meridian_exam_v1'), priorCompressed,
+    'A missing codec must never replace an unreadable compressed state');
+  const plainFallback = context({ meridian_exam_v1: originalExam });
+  plainFallback.window.MeridianExamStorage = undefined;
+  plainFallback.api.init(Engine, catalog, base);
+  plainFallback.api.loadState();
+  assert.equal(plainFallback.api.persist(), true);
+  assert.equal(JSON.parse(plainFallback.store.get('meridian_exam_v1')).version, 1);
+  console.log('PASS: failed saves retain in-memory learning; old/new backups restore original answers, metrics and reservations, roll back on failure, and preserve unreadable sources.');
+}
+
+// A small DOM shim executes app event handlers and persistence across fresh VM
+// contexts. It intentionally does not test browser layout, accessibility-tree
+// rendering or navigation; those still require a real browser.
+function studyNode(tagName = 'div') {
+  const decode = value => String(value).replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const node = Object.assign(makeTarget(), {
+    tagName: tagName.toUpperCase(), children: [], parentNode: null,
+    attributes: {}, dataset: {}, style: {}, textContent: '', value: '',
+    hidden: false, disabled: false, readOnly: false, _html: '',
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    appendChild(child) { this.children.push(child); child.parentNode = this; return child; },
+    setAttribute(key, value) {
+      const v = String(value); this.attributes[key] = v;
+      if (key.startsWith('data-')) this.dataset[key.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = v;
+      else if (key === 'readonly') this.readOnly = true;
+      else if (['hidden', 'disabled', 'checked', 'selected'].includes(key)) this[key] = true;
+      else this[key] = v;
+    },
+    getAttribute(key) { return this.attributes[key] ?? null; },
+    removeAttribute(key) {
+      delete this.attributes[key];
+      if (key === 'readonly') this.readOnly = false;
+      else if (['hidden', 'disabled', 'checked', 'selected'].includes(key)) this[key] = false;
+    },
+    matches(selector) {
+      if (selector.startsWith('#')) return this.id === selector.slice(1);
+      if (selector.startsWith('.')) return String(this.class || '').split(/\s+/).includes(selector.slice(1));
+      const attr = /^\[([\w-]+)(?:=["']?([^"'\]]+)["']?)?\]$/.exec(selector);
+      if (attr) return Object.hasOwn(this.attributes, attr[1]) && (attr[2] === undefined || this.attributes[attr[1]] === attr[2]);
+      return this.tagName.toLowerCase() === selector.toLowerCase();
+    },
+    querySelectorAll(selector) {
+      const found = [];
+      const visit = parent => { for (const child of parent.children) { if (child.matches(selector)) found.push(child); visit(child); } };
+      visit(this); return found;
+    },
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; },
+    closest(selector) { let n = this; while (n) { if (n.matches(selector)) return n; n = n.parentNode; } return null; },
+    scrollIntoView() {}, focus() {}, remove() {},
+    click() { if (!this.disabled) this.dispatchEvent({ type: 'click', target: this, preventDefault() {} }); }
+  });
+  Object.defineProperty(node, 'elements', { get() {
+    const elements = {};
+    for (const child of this.querySelectorAll('[name]')) elements[child.name] = child;
+    return elements;
+  } });
+  Object.defineProperty(node, 'innerHTML', {
+    get() { return this._html; },
+    set(source) {
+      this._html = String(source); this.children = []; this.textContent = '';
+      const stack = [this];
+      const tokens = /<\/?([a-z][\w-]*)\b([^>]*)>|([^<]+)/gi;
+      let m;
+      while ((m = tokens.exec(this._html))) {
+        if (m[3]) { stack.at(-1).textContent += decode(m[3]); continue; }
+        const tag = m[1].toLowerCase();
+        if (m[0].startsWith('</')) {
+          const current = stack.at(-1);
+          if (current.tagName === tag.toUpperCase() && stack.length > 1) {
+            if (tag === 'textarea') current.value = current.textContent;
+            if (tag === 'select') {
+              const options = current.querySelectorAll('option');
+              current.value = (options.find(option => option.selected) || options[0] || { value: '' }).value;
+            }
+            stack.pop();
+          }
+          continue;
+        }
+        const child = studyNode(tag);
+        const attrs = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+        let attr;
+        while ((attr = attrs.exec(m[2]))) child.setAttribute(attr[1], decode(attr[2] ?? attr[3] ?? attr[4] ?? ''));
+        stack.at(-1).appendChild(child);
+        if (!['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'].includes(tag)) stack.push(child);
+      }
+    }
+  });
+  return node;
+}
+
+async function appStudyContracts() {
+  const Engine = require(path.join(ROOT, 'exam-engine.js'));
+  const Codec = require(path.join(ROOT, 'exam-storage.js'));
+  const day = '2026-11-03';
+  const c = {
+    topics: [{ id: 'route', title: '유주', label: '유주' }],
+    coverage: [{ tool: 'test', label: '테스트 원문' }],
+    cards: [{ id: 'study', topic: 'route', prompt: '첫 답을 기억하는 시험 질문', answer: '정답',
+      choices: ['정답', '오답'], requiresChoices: false, detail: '설명', tool: 'test', sourceId: 'study', kind: 'recall' }]
+  };
+  const filename = path.join(ROOT, 'exam-app.js');
+  const app = fs.readFileSync(filename, 'utf8');
+  const exposed = app.replace(/\}\)\(\);\s*$/, `
+    window.__studyAudit = {
+      init: function(engine, catalog, initial) {
+        E = engine; C = catalog; state = initial; cardMap = Object.create(null); sourceMap = Object.create(null);
+        C.cards.forEach(function(card) { cardMap[card.id] = card; sourceMap[card.tool + '::' + card.sourceId] = [card.id]; });
+      },
+      current: function() { return state; },
+      session: function() { return activeSession; },
+      loadState: loadState, start: start, resume: resume, getPending: getPending,
+      reveal: reveal, grade: grade, dashboard: dashboard
+    };
+  })();`);
+  assert.notEqual(exposed, app);
+  function context(initial) {
+    const store = new Map(initial instanceof Map ? initial : Object.entries(initial || {}));
+    const root = studyNode('section'), mount = studyNode(), live = studyNode();
+    root.id = 'exam-root'; mount.id = 'mount'; live.id = 'exam-live';
+    const nodes = { 'exam-root': root, mount, 'exam-live': live };
+    let clock = Date.parse(`${day}T00:00:00Z`);
+    class ClockDate extends Date {
+      constructor(...args) { super(...(args.length ? args : [clock])); }
+      static now() { return clock; }
+    }
+    const localStorage = {
+      getItem(key) { return store.get(key) ?? null; },
+      setItem(key, value) { store.set(key, String(value)); },
+      removeItem(key) { store.delete(key); }
+    };
+    const window = Object.assign(makeTarget(), { __active: 'home', confirm: () => true, MeridianExamStorage: Codec,
+      HubSession: { cancel() {} }, matchMedia: () => ({ matches: false }) });
+    const document = Object.assign(makeTarget(), {
+      readyState: 'loading', hidden: false, activeElement: null, body: studyNode('body'),
+      getElementById(id) { return nodes[id] || root.querySelector('#' + id); },
+      querySelector(selector) { return root.querySelector(selector); },
+      createElement: studyNode
+    });
+    const fixedEngine = Object.assign({}, Engine, { localDay(value) { return Engine.localDay(value === undefined ? clock : value); } });
+    vm.runInNewContext(exposed, { window, document, localStorage, console,
+      Date: ClockDate, Map, Set, Number, URL, Blob, setTimeout, clearTimeout }, { filename, timeout: 2000 });
+    const api = window.__studyAudit;
+    api.init(fixedEngine, c, Engine.createState(day));
+    api.loadState();
+    return { api, root, store, live, window, tick(seconds) { clock += seconds * 1000; } };
+  }
+  function input(ctx, value) {
+    const field = ctx.root.querySelector('#exam-scratch');
+    assert.ok(field, 'A study card must expose its answer field');
+    field.value = value;
+    field.dispatchEvent({ type: 'input', target: field });
+    return field;
+  }
+  function draft(ctx) { return ctx.api.session().drafts[String(ctx.api.session().index)]; }
+
+  const typed = context();
+  typed.api.dashboard();
+  assert.equal(Engine.getReversal(c, typed.api.current(), day).today.startedAt, null);
+  typed.api.start('mock', 1);
+  assert.equal(Engine.getReversal(c, typed.api.current(), day).today.startedAt, null,
+    'Opening a question must not be recorded as an actual recall start');
+  const original = '내 첫 답 <표식> & "원문"\n둘째 줄';
+  input(typed, original);
+  const start = Engine.getReversal(c, typed.api.current(), day).today.startedAt;
+  assert.ok(start, 'Actual typing must record the first start');
+  typed.tick(12);
+  typed.api.reveal();
+  assert.equal(typed.root.querySelector('#exam-scratch').readOnly, true);
+  assert.equal(draft(typed).originalAnswer, original);
+  assert.equal(draft(typed).revealed, true);
+  const originalAttempt = draft(typed).attemptId;
+  const originalSession = typed.store.get('meridian_exam_session_v1');
+  assert.ok(originalSession.includes(originalAttempt));
+  const reloaded = context(typed.store);
+  reloaded.api.resume();
+  assert.equal(draft(reloaded).attemptId, originalAttempt, 'Reload must reuse the original attempt identity');
+  assert.equal(draft(reloaded).originalAnswer, original);
+  assert.equal(reloaded.root.querySelector('#exam-scratch').readOnly, true);
+  assert.equal(reloaded.root.querySelector('#exam-scratch').value, original);
+  assert.equal(reloaded.root.querySelector('#exam-answer-area').hidden, false);
+  assert.equal(Engine.getReversal(c, reloaded.api.current(), day).today.startedAt, start);
+  reloaded.api.grade(0);
+  let saved = JSON.parse(Codec.decode(reloaded.store.get('meridian_exam_v1')));
+  assert.equal(saved.records.study.attempts, 1);
+  assert.equal(saved.records.study.reversal.firstAnswer.originalAnswer, original);
+  assert.equal(Engine.getReversal(c, saved, day).today.firstAttempts, 1);
+  assert.equal(Engine.getReversal(c, saved, day).today.firstCorrect, 0);
+
+  // Simulate the session write being interrupted after the answer was saved.
+  // Resuming that exact attempt must not record it a second time.
+  const interrupted = new Map(reloaded.store);
+  interrupted.set('meridian_exam_session_v1', originalSession);
+  const replay = context(interrupted);
+  replay.api.resume();
+  replay.api.grade(0);
+  saved = JSON.parse(Codec.decode(replay.store.get('meridian_exam_v1')));
+  assert.equal(saved.records.study.attempts, 1);
+  assert.equal(saved.records.study.reversal.firstAnswer.originalAnswer, original);
+  assert.equal(Engine.getReversal(c, saved, day).today.firstAttempts, 1);
+
+  const hinted = context();
+  hinted.api.start('mock', 1);
+  input(hinted, '힌트 이전의 답');
+  hinted.root.querySelector('#exam-choice-hint').click();
+  assert.equal(draft(hinted).usedHint, true);
+  assert.equal(draft(hinted).originalAnswer, '힌트 이전의 답');
+  assert.equal(hinted.root.querySelector('#exam-scratch').readOnly, true);
+  const hintedChoices = JSON.parse(JSON.stringify(draft(hinted).choices));
+  const hintReload = context(hinted.store);
+  hintReload.api.resume();
+  assert.equal(draft(hintReload).usedHint, true, 'A refresh must not wash away a used hint');
+  assert.deepEqual(JSON.parse(JSON.stringify(draft(hintReload).choices)), hintedChoices);
+  assert.equal(draft(hintReload).originalAnswer, '힌트 이전의 답');
+  hintReload.api.reveal();
+  assert.equal(hintReload.root.querySelector('[data-grade="2"]').disabled, true);
+  hintReload.api.grade(3); // bypassing the disabled button must remain safe
+  saved = JSON.parse(Codec.decode(hintReload.store.get('meridian_exam_v1')));
+  assert.equal(saved.records.study.lastGrade < 2, true);
+  assert.equal(saved.records.study.reversal.firstAnswer.originalAnswer, '힌트 이전의 답');
+  assert.equal(Engine.getReversal(c, saved, day).today.firstAttempts, 0);
+  assert.equal(Engine.getReversal(c, saved, day).today.recoveries, 0);
+
+  const malformedHintStore = new Map(hinted.store);
+  const malformedHintSession = JSON.parse(malformedHintStore.get('meridian_exam_session_v1'));
+  malformedHintSession.drafts['0'].usedHint = 'invalid-boolean';
+  malformedHintStore.set('meridian_exam_session_v1', JSON.stringify(malformedHintSession));
+  const malformedHint = context(malformedHintStore);
+  malformedHint.api.resume();
+  malformedHint.api.reveal();
+  malformedHint.api.grade(3);
+  assert.equal(Engine.getReversal(c, malformedHint.api.current(), day).today.firstCorrect, 0,
+    'A malformed hint flag must not turn a previously hinted attempt into unaided success');
+
+  const sourceHint = context();
+  sourceHint.window.__activate = () => {};
+  sourceHint.api.start('mock', 1);
+  input(sourceHint, '원문을 열기 전 답');
+  sourceHint.root.querySelector('[data-action="source"]').click();
+  assert.equal(draft(sourceHint).usedHint, true);
+  assert.equal(draft(sourceHint).originalAnswer, '원문을 열기 전 답');
+  const sourceResume = context(sourceHint.store);
+  sourceResume.api.resume();
+  sourceResume.api.reveal();
+  sourceResume.api.grade(3);
+  assert.equal(Engine.getReversal(c, sourceResume.api.current(), day).today.firstCorrect, 0,
+    'Opening a source answer must be retained as a hint when the question is resumed');
+
+  const exposedOnly = context();
+  exposedOnly.api.start('mock', 1);
+  exposedOnly.api.reveal();
+  assert.equal(Engine.getReversal(c, exposedOnly.api.current(), day).today.startedAt, null,
+    'Answer exposure alone is not the start of unaided recall');
+  exposedOnly.api.grade(0);
+  assert.equal(Engine.getReversal(c, exposedOnly.api.current(), day).today.firstAttempts, 0);
+
+  // Completing and replaying a saved final attempt must not create a second
+  // completed bundle or count a correction as a new first success.
+  const completed = context();
+  completed.api.start('mock', 1);
+  input(completed, '정답');
+  completed.api.reveal();
+  const finalAttemptSession = completed.store.get('meridian_exam_session_v1');
+  completed.api.grade(2);
+  assert.equal(completed.api.session(), null);
+  assert.equal(completed.api.current().reversal.uiDays[day].completedSessions.length, 1);
+  const finalReplayStore = new Map(completed.store);
+  finalReplayStore.set('meridian_exam_session_v1', finalAttemptSession);
+  const finalReplay = context(finalReplayStore);
+  finalReplay.api.resume();
+  finalReplay.api.grade(2);
+  assert.equal(finalReplay.api.current().records.study.attempts, 1);
+  assert.equal(finalReplay.api.current().reversal.uiDays[day].completedSessions.length, 1);
+  assert.equal(Engine.getReversal(c, finalReplay.api.current(), day).today.firstCorrect, 1);
+
+  const midnight = context();
+  midnight.api.start('mock', 1);
+  input(midnight, '날짜가 바뀌기 전에 본 답');
+  midnight.api.reveal();
+  midnight.tick(24 * 60 * 60);
+  midnight.api.grade(2);
+  const nextDay = Engine.addDays(day, 1);
+  assert.equal(Engine.getReversal(c, midnight.api.current(), nextDay).today.firstCorrect, 0,
+    'An already exposed attempt must not become tomorrow\'s first unaided success at KST midnight');
+  assert.equal(Engine.getReversal(c, midnight.api.current(), nextDay).today.recoveries, 0);
+
+  const midnightChoice = context();
+  midnightChoice.api.start('mock', 1);
+  midnightChoice.root.querySelector('#exam-choice-hint').click();
+  const staleChoice = midnightChoice.root.querySelectorAll('[data-choice]')[0];
+  midnightChoice.tick(24 * 60 * 60);
+  assert.doesNotThrow(() => staleChoice.click(),
+    'A choice clicked at midnight must stop safely after the old session is replaced');
+  assert.equal(midnightChoice.api.session(), null);
+  assert.equal(Engine.getReversal(c, midnightChoice.api.current(), nextDay).today.firstAttempts, 0);
+  assert.equal(Engine.getReversal(c, midnightChoice.api.current(), nextDay).today.startedAt, null);
+  console.log('PASS: actual study handlers preserve answer/hint snapshots and attempt IDs across reload; duplicate deliveries and completed bundles stay unique.');
 }
 
 (async () => {
@@ -541,5 +998,6 @@ async function appStorageContracts(catalog) {
   const catalog = catalogCoverage();
   await legacyContracts(catalog);
   await appStorageContracts(catalog);
+  await appStudyContracts();
   console.log('Integration smoke checks passed.');
 })().catch(error => { console.error(error.stack || error); process.exitCode = 1; });

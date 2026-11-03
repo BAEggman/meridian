@@ -53,16 +53,35 @@ test('deadline quota remains stable during the day and rises after missed days',
   const c = catalog(470);
   let state = E.createState('2026-11-02');
   let plan = E.getPlan(c, state, '2026-11-02');
-  assert.equal(plan.coverageDays, 47);
-  assert.equal(plan.coverageDeadline, '2026-12-18');
-  assert.equal(plan.newTarget, 10);
+  assert.equal(plan.coverageDays, 46);
+  assert.equal(plan.coverageDeadline, '2026-12-17');
+  assert.equal(plan.newTarget, 11);
   state = E.review(state, 'c0', 2, { today: '2026-11-02' });
   plan = E.getPlan(c, state, '2026-11-02');
-  assert.equal(plan.newTarget, 10);
+  assert.equal(plan.newTarget, 11);
   assert.equal(plan.newCompletedToday, 1);
-  assert.equal(plan.newRemaining, 9);
+  assert.equal(plan.newRemaining, 10);
   assert.equal(E.getPlan(c, state, '2026-11-03').newTarget, 11);
   assert.equal(E.getPlan(c, state, '2026-11-07').newTarget, 12);
+});
+
+test('coverage and the fourteen-day reserve do not overlap, including zero reserve days', () => {
+  const c = catalog(1198);
+  const state = E.createState('2026-11-03');
+  const plan = E.getPlan(c, state, '2026-11-03');
+  assert.equal(plan.coverageDays, 45);
+  assert.equal(plan.coverageDeadline, '2026-12-17');
+  assert.equal(plan.newTarget, 27);
+  assert.equal(E.getPlan(c, state, '2026-12-17').inReserve, false);
+  assert.equal(E.getPlan(c, state, '2026-12-18').inReserve, true);
+  assert.equal(E.dayDiff(E.addDays(plan.coverageDeadline, 1), plan.lastStudyDay) + 1, 14);
+
+  state.settings.reserveDays = 0;
+  const noReserve = E.getPlan(c, state, '2026-11-03');
+  assert.equal(noReserve.coverageDeadline, '2026-12-31');
+  assert.equal(noReserve.coverageDays, 59);
+  assert.equal(E.getPlan(c, state, '2026-12-31').inReserve, false);
+  assert.equal(E.getPlan(c, state, '2027-01-01').newRemaining, 0);
 });
 
 test('a two-minute capacity never disguises the deadline target', () => {
