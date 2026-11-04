@@ -713,7 +713,7 @@ function studyNode(tagName = 'div') {
   const node = Object.assign(makeTarget(), {
     tagName: tagName.toUpperCase(), children: [], parentNode: null,
     attributes: {}, dataset: {}, style: {}, textContent: '', value: '',
-    hidden: false, disabled: false, readOnly: false, _html: '',
+    hidden: false, disabled: false, readOnly: false, open: false, _html: '',
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     appendChild(child) { this.children.push(child); child.parentNode = this; return child; },
     setAttribute(key, value) {
@@ -744,7 +744,14 @@ function studyNode(tagName = 'div') {
     querySelector(selector) { return this.querySelectorAll(selector)[0] || null; },
     closest(selector) { let n = this; while (n) { if (n.matches(selector)) return n; n = n.parentNode; } return null; },
     scrollIntoView() {}, focus() {}, remove() {},
-    click() { if (!this.disabled) this.dispatchEvent({ type: 'click', target: this, preventDefault() {} }); }
+    click() {
+      if (this.disabled) return;
+      this.dispatchEvent({ type: 'click', target: this, preventDefault() {} });
+      if (this.tagName === 'SUMMARY' && this.parentNode && this.parentNode.tagName === 'DETAILS') {
+        this.parentNode.open = !this.parentNode.open;
+        this.parentNode.dispatchEvent({ type: 'toggle', target: this.parentNode });
+      }
+    }
   });
   Object.defineProperty(node, 'elements', { get() {
     const elements = {};
@@ -778,7 +785,7 @@ function studyNode(tagName = 'div') {
         let attr;
         while ((attr = attrs.exec(m[2]))) child.setAttribute(attr[1], decode(attr[2] ?? attr[3] ?? attr[4] ?? ''));
         stack.at(-1).appendChild(child);
-        if (!['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'].includes(tag)) stack.push(child);
+        if (!m[0].endsWith('/>') && !['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'].includes(tag)) stack.push(child);
       }
     }
   });
@@ -993,11 +1000,499 @@ async function appStudyContracts() {
   console.log('PASS: actual study handlers preserve answer/hint snapshots and attempt IDs across reload; duplicate deliveries and completed bundles stay unique.');
 }
 
+async function appExpeditionContracts() {
+  const Engine = require(path.join(ROOT, 'exam-engine.js'));
+  const Codec = require(path.join(ROOT, 'exam-storage.js'));
+  const Expedition = require(path.join(ROOT, 'exam-expedition.js'));
+  const day = '2026-11-04', yesterday = Engine.addDays(day, -1);
+  const filename = path.join(ROOT, 'exam-app.js');
+  const app = fs.readFileSync(filename, 'utf8');
+  const exposed = app.replace(/\}\)\(\);\s*$/, `
+    window.__expeditionAudit = {
+      current: function() { return state; }, session: function() { return activeSession; },
+      grade: grade, start: start, importFile: importFile, exportBackup: exportBackup
+    };
+  })();`);
+  assert.notEqual(exposed, app);
+  const plain = value => JSON.parse(JSON.stringify(value));
+  function catalog(count = 6) {
+    return {
+      topics: [{ id: 'route', label: '유주', title: '유주' }, { id: 'point', label: '혈위', title: '혈위' }],
+      coverage: [{ tool: 'test', label: '테스트 원자료' }],
+      cards: Array.from({ length: count }, (_, i) => ({
+        id: `room-${i}`, topic: i % 2 ? 'point' : 'route', prompt: `제${i + 1}관문의 원문 질문`,
+        answer: `정답표식${i}`, choices: [`정답표식${i}`, `오답표식${i}`], detail: `원자료의 설명 ${i}`,
+        requiresChoices: false, kind: 'recall', tool: 'test', sourceId: String(i)
+      }))
+    };
+  }
+  function initial() {
+    const state = Engine.createState(yesterday);
+    state.settings.examDate = Engine.addDays(day, 1);
+    state.settings.reserveDays = 0;
+    return state;
+  }
+  function context(c, supplied) {
+    const store = new Map(supplied instanceof Map ? supplied : Object.entries(supplied || {}));
+    if (!store.has('meridian_exam_v1')) store.set('meridian_exam_v1', JSON.stringify(initial()));
+    const root = studyNode('section'), mount = studyNode(), live = studyNode();
+    root.id = 'exam-root'; mount.id = 'mount'; live.id = 'exam-live';
+    const nodes = { 'exam-root': root, mount, 'exam-live': live };
+    let clock = Date.parse(`${day}T01:00:00Z`);
+    class ClockDate extends Date {
+      constructor(...args) { super(...(args.length ? args : [clock])); }
+      static now() { return clock; }
+    }
+    const controls = { audioCreated: 0, blobs: [], sources: [] };
+    const localStorage = {
+      getItem(key) { return store.get(key) ?? null; },
+      setItem(key, value) { store.set(key, String(value)); },
+      removeItem(key) { store.delete(key); }
+    };
+    const fixedEngine = Object.assign({}, Engine, { localDay(value) { return Engine.localDay(value === undefined ? clock : value); } });
+    const window = Object.assign(makeTarget(), {
+      __active: 'home', confirm: () => true, MeridianExamStorage: Codec,
+      MeridianExamEngine: fixedEngine, MeridianExpedition: Expedition, MERIDIAN_EXAM_CATALOG: c,
+      HubSession: { cancel() {} }, matchMedia: () => ({ matches: true }),
+      AudioContext: function() { controls.audioCreated++; throw new Error('Sound must stay opt-in'); },
+      __activate(tool) {
+        controls.sources.push(tool);
+        window.__active = tool;
+        window.dispatchEvent({ type: 'hub:tabchange', detail: { id: tool } });
+      }
+    });
+    const document = Object.assign(makeTarget(), {
+      readyState: 'loading', hidden: false, activeElement: null, body: studyNode('body'),
+      getElementById(id) { return nodes[id] || root.querySelector('#' + id); },
+      querySelector(selector) { return root.querySelector(selector); },
+      createElement: studyNode
+    });
+    const blobURLs = { createObjectURL(blob) { controls.blobs.push(blob); return 'blob:expedition-test'; }, revokeObjectURL() {} };
+    vm.runInNewContext(exposed, { window, document, localStorage, console, Date: ClockDate,
+      Map, Set, Number, URL: blobURLs, Blob, setTimeout, clearTimeout }, { filename, timeout: 3000 });
+    document.dispatchEvent({ type: 'DOMContentLoaded' });
+    return { c, api: window.__expeditionAudit, root, store, window, document, controls,
+      tick(seconds) { clock += seconds * 1000; } };
+  }
+  function node(ctx, selector) {
+    const found = ctx.root.querySelector(selector);
+    assert.ok(found, `The actual expedition UI must render ${selector}`);
+    return found;
+  }
+  function click(ctx, selector) {
+    const target = node(ctx, selector);
+    assert.equal(target.disabled, false, `${selector} must be operable now`);
+    target.click(); return target;
+  }
+  function content(element) { return element.textContent + element.children.map(content).join(''); }
+  function draft(ctx) {
+    const session = ctx.api.session();
+    return session && session.drafts[String(session.index)];
+  }
+  function currentCard(ctx) {
+    const session = ctx.api.session();
+    return session && ctx.c.cards.find(card => card.id === session.ids[session.index]);
+  }
+  function fork(ctx, offset = 0) {
+    const choice = ctx.root.querySelector(`[data-fork="${offset}"]`);
+    if (choice) choice.click();
+  }
+  function choose(ctx, correct = true) {
+    const card = currentCard(ctx), choices = draft(ctx).choices;
+    const index = choices.findIndex(value => correct ? value === card.answer : value !== card.answer);
+    assert.ok(index >= 0, 'This fixture must exercise an actual original option');
+    click(ctx, `[data-x-choice="${index}"]`);
+  }
+  function submitChoice(ctx, correct = true) {
+    fork(ctx);
+    const card = currentCard(ctx), before = ctx.api.current().records[card.id]?.attempts || 0;
+    choose(ctx, correct);
+    assert.equal(ctx.api.current().records[card.id]?.attempts || 0, before,
+      'Selecting an option is not an answered question until explicit submission');
+    click(ctx, '#expedition-submit');
+    assert.ok(ctx.root.querySelector('[data-outcome]'), 'Submission must render the result beat');
+    assert.ok(content(ctx.root).includes(card.answer), 'The result must expose the canonical answer');
+    assert.equal(ctx.api.current().records[card.id].attempts, before + 1);
+  }
+  function type(ctx, value) {
+    const field = node(ctx, '#exam-scratch'); field.value = value;
+    field.dispatchEvent({ type: 'input', target: field }); return field;
+  }
+  function submitRecall(ctx, correct = true) {
+    fork(ctx);
+    const card = currentCard(ctx);
+    type(ctx, correct ? card.answer : `처음의 오답 ${card.id}`);
+    click(ctx, '#exam-reveal');
+    click(ctx, `[data-grade="${correct ? 2 : 0}"]`);
+    assert.ok(ctx.root.querySelector('[data-outcome]'));
+  }
+  function next(ctx) { click(ctx, '#expedition-next'); }
+  function resume(ctx) { click(ctx, '[data-x-action="resume"]'); }
+  function start(ctx, approach = 'play') {
+    click(ctx, `[data-approach="${approach}"]`);
+    click(ctx, '[data-x-action="start"]');
+    assert.ok(ctx.api.session()?.expedition, 'The main CTA must create a real expedition room');
+  }
+
+  // The complete loop is driven by real rendered controls, including a wrong
+  // choice, post-submission reload, branch, five correct answers and finite repair.
+  const c = catalog();
+  let play = context(c);
+  assert.equal(play.api.session(), null);
+  assert.equal(Expedition.getWorld(c, play.api.current(), { today: day }).totals.introduced, 0);
+  start(play);
+  const ids = plain(play.api.session().ids);
+  assert.equal(ids.length, 6);
+  assert.equal(new Set(ids).size, 6);
+  assert.equal(node(play, '#expedition-submit').disabled, true);
+  const failedId = ids[0];
+  choose(play, false);
+  const ungradedSession = play.store.get('meridian_exam_session_v1');
+  const submitted = click(play, '#expedition-submit');
+  submitted.click();
+  assert.equal(play.api.session().index, 0, 'A result waits for explicit Next');
+  assert.equal(play.api.session().ids.length, 6, 'Wrong answers cannot append invisible extra rooms');
+  assert.equal(play.api.current().records[failedId].lastGrade, 0);
+  assert.equal(play.api.current().records[failedId].attempts, 1);
+  assert.equal(node(play, '[data-outcome]').dataset.outcome, 'miss');
+  assert.equal(node(play, '[data-room-node="0"]').dataset.result, 'miss');
+  assert.equal(play.root.querySelector('[data-grade="3"]'), null, 'Objective choices must not ask for an honor-system success grade');
+  const resultSession = JSON.parse(play.store.get('meridian_exam_session_v1'));
+  const originalAttempt = resultSession.drafts['0'].attemptId;
+  const priorChoiceOrder = plain(resultSession.drafts['0'].choices);
+  play = context(c, play.store);
+  resume(play);
+  assert.equal(play.api.session().index, 0);
+  assert.equal(draft(play).attemptId, originalAttempt);
+  assert.deepEqual(plain(draft(play).choices), priorChoiceOrder);
+  assert.equal(node(play, '[data-outcome]').dataset.outcome, 'miss');
+  assert.equal(play.api.current().records[failedId].attempts, 1);
+  play.api.grade(3);
+  assert.equal(play.api.current().records[failedId].lastGrade, 0);
+  assert.equal(play.api.current().records[failedId].attempts, 1);
+  next(play);
+  const beforeFork = plain(play.api.session().ids);
+  click(play, '[data-fork="1"]');
+  assert.deepEqual(plain(play.api.session().ids), [beforeFork[0], beforeFork[2], beforeFork[1], ...beforeFork.slice(3)]);
+  const swappedId = currentCard(play).id;
+  submitChoice(play);
+  assert.equal(play.api.current().records[swappedId].reversal.firstAnswer.originalAnswer,
+    c.cards.find(card => card.id === swappedId).answer, 'A branch must keep the current draft attached to its actual card');
+  assert.equal(node(play, '[data-outcome]').dataset.outcome, 'first-choice');
+  next(play);
+  while (play.api.session()) { submitChoice(play); next(play); }
+  assert.ok(play.root.querySelector('#expedition-complete'));
+  assert.equal(play.root.querySelectorAll('[data-room-node]').length, 6);
+  assert.equal(node(play, '[data-room-node="0"]').dataset.result, 'miss');
+  assert.ok(play.root.querySelectorAll('[data-room-node]').slice(1).every(n => n.dataset.result === 'first-choice'));
+  assert.ok(c.cards.every(card => content(play.root).includes(card.answer)), 'The end collection must contain the canonical fragments actually encountered');
+  assert.equal(Expedition.getWorld(c, play.api.current(), { today: day }).totals.choiceConfirmed, 5);
+  assert.equal(Expedition.getWorld(c, play.api.current(), { today: day }).totals.recalled, 0);
+  assert.equal(Engine.getReversal(c, play.api.current(), day).today.firstAttempts, 0);
+  assert.equal(Expedition.getDay(c, play.api.current(), { today: day }).remaining, 0);
+  assert.equal(Expedition.getDay(c, play.api.current(), { today: day }).unresolved, 1);
+  assert.ok(Engine.getPlan(c, play.api.current(), day).totalRemaining > 0);
+  const optionalNext = play.root.querySelector('[data-x-action="next-route"]');
+  if (optionalNext && !optionalNext.disabled) {
+    optionalNext.click();
+    assert.equal(play.api.session(), null, 'An empty primary day must not auto-fill an extra mock room');
+  }
+  click(play, '[data-x-action="repair"]');
+  assert.equal(play.api.session().expedition.phase, 'repair');
+  assert.deepEqual(plain(play.api.session().ids), [failedId]);
+  submitChoice(play);
+  assert.equal(node(play, '[data-outcome]').dataset.outcome, 'corrected');
+  assert.equal(play.api.session().ids.length, 1);
+  next(play);
+  assert.equal(play.api.session(), null);
+  assert.ok(play.root.querySelector('#expedition-complete'));
+  assert.equal(Expedition.getWorld(c, play.api.current(), { today: day }).totals.choiceConfirmed, 5);
+  assert.equal(Engine.getReversal(c, play.api.current(), day).today.recoveries, 0);
+  assert.equal(Engine.getReversal(c, play.api.current(), day).tomorrowRetestCount, 1);
+  click(play, '[data-x-action="finish"]');
+  assert.equal(play.api.session(), null);
+  assert.equal(play.controls.audioCreated, 0, 'No default effects may create an audio context');
+
+  // A crash between the exam write and session write must not rewrite the
+  // original wrong answer when the same submission is delivered again.
+  const interrupted = new Map(play.store);
+  const wrongOnly = Engine.review(initial(), failedId, 0, { today: day, attemptId: originalAttempt,
+    evidence: 'choice', unaided: false, usedHint: false, originalAnswer: `오답표식${failedId.split('-')[1]}` });
+  interrupted.set('meridian_exam_v1', Codec.encode(JSON.stringify(wrongOnly)));
+  interrupted.set('meridian_exam_session_v1', ungradedSession);
+  const replay = context(c, interrupted);
+  resume(replay);
+  assert.equal(replay.root.querySelector('[data-x-choice]'), null,
+    'An already stored submission must resume at its result instead of accepting a replacement answer');
+  replay.api.grade(3);
+  assert.equal(replay.api.current().records[failedId].attempts, 1);
+  assert.equal(replay.api.current().records[failedId].lastGrade, 0);
+  assert.equal(node(replay, '[data-outcome]').dataset.outcome, 'miss');
+  assert.equal(replay.api.current().records[failedId].reversal.firstAnswer.originalAnswer,
+    `오답표식${failedId.split('-')[1]}`);
+  assert.equal(Expedition.getWorld(c, replay.api.current(), { today: day }).totals.choiceConfirmed, 0);
+
+  // A malformed older snapshot can reuse another card's attempt ID. Recovery
+  // must stop the restore loop, retain the conflicting ID and require an assisted
+  // confirmation, without changing the already stored result of the first card.
+  const collisionCatalog = catalog(2);
+  const collisionSeed = context(collisionCatalog);
+  start(collisionSeed);
+  const firstCollisionId = currentCard(collisionSeed).id;
+  submitChoice(collisionSeed);
+  const reusedAttempt = draft(collisionSeed).attemptId;
+  next(collisionSeed);
+  const secondCollisionId = currentCard(collisionSeed).id;
+  const malformed = JSON.parse(collisionSeed.store.get('meridian_exam_session_v1'));
+  const malformedDraft = malformed.drafts['1'];
+  malformedDraft.attemptId = reusedAttempt;
+  malformedDraft.started = true; malformedDraft.revealed = true;
+  malformedDraft.choiceValue = currentCard(collisionSeed).answer;
+  malformedDraft.originalAnswer = currentCard(collisionSeed).answer;
+  malformedDraft.submission = { version: 1, day, attemptId: reusedAttempt, type: 'choice',
+    grade: 2, choiceValue: malformedDraft.choiceValue, seconds: 15 };
+  const collisionStore = new Map(collisionSeed.store);
+  collisionStore.set('meridian_exam_session_v1', JSON.stringify(malformed));
+  const collision = context(collisionCatalog, collisionStore);
+  assert.doesNotThrow(() => resume(collision), 'A cross-card attempt collision must not recursively restore forever');
+  assert.notEqual(draft(collision).attemptId, reusedAttempt);
+  assert.equal(draft(collision).invalidFields.collidingAttemptId, reusedAttempt);
+  assert.equal(draft(collision).usedHint, true);
+  assert.equal(collision.api.current().records[firstCollisionId].attempts, 1);
+  assert.equal(collision.api.current().records[secondCollisionId]?.attempts || 0, 0);
+  click(collision, '#expedition-submit');
+  assert.equal(node(collision, '[data-outcome]').dataset.outcome, 'assisted');
+  assert.ok(collision.api.current().records[secondCollisionId].lastGrade < 2);
+  assert.equal(collision.api.current().records[firstCollisionId].attempts, 1);
+  assert.equal(Expedition.getWorld(collisionCatalog, collision.api.current(), { today: day }).totals.choiceConfirmed, 1);
+  assert.equal(Expedition.getWorld(collisionCatalog, collision.api.current(), { today: day }).totals.recalled, 0);
+
+  // Sequence play assembles original fragments, supports undo/reset, persists
+  // its shuffle and partial answer, and grades complete order objectively.
+  const sequenceCatalog = catalog(1);
+  sequenceCatalog.cards[0].kind = 'sequence';
+  sequenceCatalog.cards[0].answer = '起於中焦 → 下絡大腸 → 還循胃口';
+  delete sequenceCatalog.cards[0].choices;
+  let sequence = context(sequenceCatalog);
+  start(sequence);
+  const fragments = plain(draft(sequence).fragments);
+  const sequenceAttempt = draft(sequence).attemptId;
+  function fragment(ctx, value) { click(ctx, `[data-fragment="${draft(ctx).fragments.indexOf(value)}"]`); }
+  assert.equal(node(sequence, '#expedition-submit').disabled, true);
+  fragment(sequence, '還循胃口'); fragment(sequence, '下絡大腸');
+  click(sequence, '#expedition-undo');
+  assert.equal(draft(sequence).assembled.length, 1);
+  click(sequence, '#expedition-reset');
+  assert.equal(draft(sequence).assembled.length, 0);
+  fragment(sequence, '還循胃口');
+  sequence = context(sequenceCatalog, sequence.store);
+  resume(sequence);
+  assert.deepEqual(plain(draft(sequence).fragments), fragments);
+  assert.equal(draft(sequence).assembled.length, 1);
+  assert.equal(draft(sequence).attemptId, sequenceAttempt);
+  fragment(sequence, '下絡大腸'); fragment(sequence, '起於中焦');
+  click(sequence, '#expedition-submit');
+  assert.equal(node(sequence, '[data-outcome]').dataset.outcome, 'miss');
+  assert.equal(sequence.api.current().records['room-0'].lastGrade, 0);
+  assert.equal(sequence.api.current().records['room-0'].reversal.firstAnswer.originalAnswer, '還循胃口 → 下絡大腸 → 起於中焦');
+  sequence.api.grade(3);
+  assert.equal(sequence.api.current().records['room-0'].lastGrade, 0);
+  next(sequence);
+  assert.equal(sequence.api.session(), null);
+  const correctSequence = context(sequenceCatalog);
+  start(correctSequence);
+  for (const value of sequenceCatalog.cards[0].answer.split(' → ')) fragment(correctSequence, value);
+  click(correctSequence, '#expedition-submit');
+  assert.equal(node(correctSequence, '[data-outcome]').dataset.outcome, 'first-choice');
+  assert.equal(Engine.getReversal(sequenceCatalog, correctSequence.api.current(), day).today.firstAttempts, 0);
+  assert.equal(Expedition.getWorld(sequenceCatalog, correctSequence.api.current(), { today: day }).totals.choiceConfirmed, 1);
+
+  function bossFixture(spoiler) {
+    const cards = catalog();
+    const boss = cards.cards.at(-1), first = cards.cards[0];
+    boss.answer = '다음날만꺼낼보스정답'; boss.choices = [boss.answer, '보스의다른답'];
+    if (spoiler === 'choice') first.choices.push(boss.answer);
+    if (spoiler === 'detail') first.detail += ' / ' + boss.answer;
+    let state = Engine.review(initial(), boss.id, 0, { today: yesterday, attemptId: 'yesterday-boss',
+      evidence: 'recall', unaided: true, usedHint: false, originalAnswer: '어제 막힌 원답' });
+    // Another real due question is explicitly reserved first, before the boss.
+    state = Engine.review(state, first.id, 2, { today: yesterday, attemptId: 'yesterday-first',
+      evidence: 'recall', unaided: true, usedHint: false, originalAnswer: first.answer });
+    state = Engine.reserveFirst(state, first.id, { today: yesterday });
+    return { cards, boss, first, state };
+  }
+  function reachBoss(ctx) {
+    while (ctx.api.session().index < ctx.api.session().ids.length - 1) { submitChoice(ctx); next(ctx); }
+    assert.equal(currentCard(ctx).id, ctx.api.session().expedition.bossId);
+    assert.equal(ctx.root.querySelector('[data-x-choice]'), null, 'A recallable boss cannot reveal its choices in play mode');
+    assert.ok(ctx.root.querySelector('#exam-scratch'));
+  }
+  const honest = bossFixture();
+  const boss = context(honest.cards, { meridian_exam_v1: JSON.stringify(honest.state) });
+  start(boss);
+  assert.equal(boss.api.session().ids[0], honest.first.id);
+  assert.equal(boss.api.session().ids.at(-1), honest.boss.id);
+  reachBoss(boss);
+  submitRecall(boss);
+  assert.equal(node(boss, '[data-outcome]').dataset.outcome, 'recovered');
+  assert.equal(node(boss, '[data-room-node="5"]').dataset.result, 'recovered');
+  assert.equal(Engine.getReversal(honest.cards, boss.api.current(), day).today.recoveries, 1);
+  next(boss);
+  assert.ok(boss.root.querySelector('#expedition-complete'));
+
+  const spoiled = bossFixture('choice');
+  const exposedBoss = context(spoiled.cards, { meridian_exam_v1: JSON.stringify(spoiled.state) });
+  start(exposedBoss);
+  assert.ok(exposedBoss.api.current().reversal.days[day].exposures[spoiled.boss.id],
+    'Showing another card\'s correct answer as an original choice is still exposure');
+  reachBoss(exposedBoss);
+  submitRecall(exposedBoss);
+  assert.notEqual(node(exposedBoss, '[data-outcome]').dataset.outcome, 'recovered');
+  assert.equal(Engine.getReversal(spoiled.cards, exposedBoss.api.current(), day).today.recoveries, 0);
+  assert.equal(exposedBoss.api.current().records[spoiled.boss.id].history.at(-1).unaided, false);
+
+  const detailFixture = bossFixture('detail');
+  const detail = context(detailFixture.cards, { meridian_exam_v1: JSON.stringify(detailFixture.state) });
+  start(detail);
+  submitChoice(detail);
+  assert.equal(detail.api.current().reversal.days[day].exposures[detailFixture.boss.id], undefined,
+    'A closed detail panel is not visible answer exposure');
+  const details = node(detail, '#expedition-detail');
+  assert.equal(details.open, false);
+  const summary = details.querySelector('summary');
+  assert.ok(summary); summary.click();
+  assert.ok(detail.api.current().reversal.days[day].exposures[detailFixture.boss.id],
+    'Opening a source explanation must expose matching still-unanswered room answers');
+
+  // Visible content can spoil today's next room as well as the current six.
+  // Keep one real scheduled prior error outside room one, expose its complete
+  // answer in an opened explanation, then actually reach it as room two's boss.
+  const nextRoomCatalog = catalog(7);
+  let nextRoomState = initial();
+  for (const card of nextRoomCatalog.cards) {
+    nextRoomState = Engine.review(nextRoomState, card.id, 0, { today: yesterday,
+      attemptId: `prior-error-${card.id}`, evidence: 'recall', unaided: true,
+      usedHint: false, originalAnswer: `어제의 오답 ${card.id}` });
+  }
+  const plannedRoom = Expedition.buildRoom(nextRoomCatalog, nextRoomState,
+    { today: day, phase: 'primary', approach: 'play' });
+  const laterId = Expedition.getDay(nextRoomCatalog, nextRoomState, { today: day }).remainingIds
+    .find(id => !plannedRoom.ids.includes(id));
+  assert.ok(laterId, 'The fixture must retain one scheduled question beyond the first finite room');
+  const laterCard = nextRoomCatalog.cards.find(card => card.id === laterId);
+  nextRoomCatalog.cards.find(card => card.id === plannedRoom.ids[0]).detail += ` / 다음 질문의 원문 근거: ${laterCard.answer}`;
+  const nextRoom = context(nextRoomCatalog, { meridian_exam_v1: JSON.stringify(nextRoomState) });
+  start(nextRoom);
+  assert.equal(nextRoom.api.session().ids.includes(laterId), false);
+  submitChoice(nextRoom);
+  assert.equal(nextRoom.api.current().reversal.days[day].exposures[laterId], undefined);
+  node(nextRoom, '#expedition-detail').querySelector('summary').click();
+  assert.ok(nextRoom.api.current().reversal.days[day].exposures[laterId],
+    'Opened answer material must mark a matching still-unanswered question in today\'s next planned room');
+  next(nextRoom);
+  while (nextRoom.api.session()) {
+    fork(nextRoom);
+    if (draft(nextRoom).interactionType === 'recall') submitRecall(nextRoom);
+    else submitChoice(nextRoom);
+    next(nextRoom);
+  }
+  const recoveriesBeforeSecondRoom = Engine.getReversal(nextRoomCatalog, nextRoom.api.current(), day).today.recoveries;
+  click(nextRoom, '[data-x-action="next-route"]');
+  assert.deepEqual(plain(nextRoom.api.session().ids), [laterId]);
+  assert.equal(nextRoom.api.session().expedition.bossId, laterId);
+  submitRecall(nextRoom);
+  assert.notEqual(node(nextRoom, '[data-outcome]').dataset.outcome, 'recovered');
+  assert.equal(nextRoom.api.current().records[laterId].history.at(-1).unaided, false);
+  assert.equal(Engine.getReversal(nextRoomCatalog, nextRoom.api.current(), day).today.recoveries, recoveriesBeforeSecondRoom);
+  const sourceFixture = bossFixture();
+  const source = context(sourceFixture.cards, { meridian_exam_v1: JSON.stringify(sourceFixture.state) });
+  start(source);
+  click(source, '[data-action="source"]');
+  assert.deepEqual(source.controls.sources, ['test']);
+  assert.ok(source.api.current().reversal.days[day].exposures[sourceFixture.boss.id]);
+  const sourceSession = JSON.parse(source.store.get('meridian_exam_session_v1'));
+  assert.equal(sourceSession.drafts['0'].usedHint, true);
+
+  // The recall approach changes the actual interaction; original mandatory
+  // choice stems remain objective even when a recall approach is requested.
+  const recall = context(catalog(1));
+  start(recall, 'recall');
+  assert.equal(recall.root.querySelector('[data-x-choice]'), null);
+  submitRecall(recall);
+  assert.equal(node(recall, '[data-outcome]').dataset.outcome, 'first-recall');
+  assert.equal(recall.api.session().index, 0);
+  assert.equal(Engine.getReversal(recall.c, recall.api.current(), day).today.firstCorrect, 1);
+  let recallHint = context(catalog(1));
+  start(recallHint, 'recall');
+  type(recallHint, '단서 전 원답 <보존>');
+  click(recallHint, '#exam-choice-hint');
+  const hintedAttempt = draft(recallHint).attemptId;
+  assert.equal(draft(recallHint).usedHint, true);
+  assert.equal(node(recallHint, '#exam-scratch').readOnly, true);
+  recallHint = context(recallHint.c, recallHint.store);
+  resume(recallHint);
+  assert.equal(draft(recallHint).attemptId, hintedAttempt);
+  assert.equal(draft(recallHint).usedHint, true);
+  assert.equal(draft(recallHint).originalAnswer, '단서 전 원답 <보존>');
+  assert.equal(node(recallHint, '#exam-scratch').readOnly, true);
+  choose(recallHint);
+  click(recallHint, '#exam-reveal');
+  assert.equal(node(recallHint, '[data-grade="2"]').disabled, true);
+  recallHint.api.grade(3);
+  assert.equal(node(recallHint, '[data-outcome]').dataset.outcome, 'assisted');
+  assert.ok(recallHint.api.current().records['room-0'].lastGrade < 2);
+  assert.equal(recallHint.api.current().records['room-0'].reversal.firstAnswer.originalAnswer, '단서 전 원답 <보존>');
+  assert.equal(Engine.getReversal(recallHint.c, recallHint.api.current(), day).today.firstCorrect, 0);
+  const requiredCatalog = catalog(1); requiredCatalog.cards[0].requiresChoices = true;
+  const mandatory = context(requiredCatalog);
+  start(mandatory, 'recall');
+  submitChoice(mandatory);
+  assert.equal(Engine.getReversal(requiredCatalog, mandatory.api.current(), day).today.firstCorrect, 0);
+
+  // Existing sessions and backups keep their existing semantics with the new
+  // module present. Preference fields must not replace legacy learning data.
+  const old = context(catalog(2));
+  old.api.start('mock', 1);
+  assert.equal(old.api.session().expedition, undefined);
+  type(old, '예전 방식의 중단 원답');
+  const oldReload = context(old.c, old.store);
+  resume(oldReload);
+  assert.equal(oldReload.api.session().expedition, undefined);
+  assert.equal(node(oldReload, '#exam-scratch').value, '예전 방식의 중단 원답');
+  click(oldReload, '#exam-reveal');
+  assert.ok(oldReload.root.querySelector('[data-grade="2"]'));
+  play.api.exportBackup();
+  const backup = JSON.parse(await play.controls.blobs.at(-1).text());
+  assert.equal(backup.version, 1);
+  assert.equal(backup.format, 'meridian-exam-backup');
+  assert.deepEqual(backup.exam.expedition, plain(play.api.current().expedition));
+  const restored = context(c);
+  await restored.api.importFile({ size: Buffer.byteLength(JSON.stringify(backup)), text: async () => JSON.stringify(backup) });
+  assert.deepEqual(plain(Expedition.getWorld(c, restored.api.current(), { today: day })),
+    plain(Expedition.getWorld(c, play.api.current(), { today: day })));
+  assert.equal(restored.store.has('meridian_exam_session_v1'), false);
+  const reloadedBackup = context(c, restored.store);
+  assert.deepEqual(plain(Expedition.getWorld(c, reloadedBackup.api.current(), { today: day })),
+    plain(Expedition.getWorld(c, play.api.current(), { today: day })));
+
+  const midnight = context(catalog(1));
+  start(midnight); choose(midnight);
+  const staleSubmit = node(midnight, '#expedition-submit');
+  midnight.tick(24 * 60 * 60);
+  assert.doesNotThrow(() => staleSubmit.click());
+  assert.equal(midnight.api.session(), null);
+  assert.equal(Engine.getReversal(midnight.c, midnight.api.current(), Engine.addDays(day, 1)).today.firstCorrect, 0);
+  assert.equal(midnight.api.current().records['room-0']?.attempts || 0, 0,
+    'A stale room submission must not become a new-day answer');
+  console.log('PASS: expedition controls execute choice and sequence grading, fixed rooms, forks, finite repair, result-stage reload, real bosses and cross-question exposure without fake recall growth.');
+}
+
 (async () => {
   syntaxAndPreservation();
   const catalog = catalogCoverage();
   await legacyContracts(catalog);
   await appStorageContracts(catalog);
   await appStudyContracts();
+  await appExpeditionContracts();
   console.log('Integration smoke checks passed.');
 })().catch(error => { console.error(error.stack || error); process.exitCode = 1; });

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+  <title>경락 원정 — 기억의 서고</title>
+  <desc>학습 모험을 위한 가상의 등불 안내자, 먹물 수호자와 일곱 구역 문양. 인체나 경맥의 해부학적 지도는 아닙니다.</desc>
+  <defs>
+    <linearGradient id="exp-brass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0b1"/><stop offset="1" stop-color="#b98751"/></linearGradient>
+    <linearGradient id="exp-jade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b5f2d1"/><stop offset="1" stop-color="#4e9d94"/></linearGradient>
+    <linearGradient id="exp-ink" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8076ab"/><stop offset="1" stop-color="#34324e"/></linearGradient>
+    <radialGradient id="exp-glow"><stop stop-color="#bafcda" stop-opacity=".48"/><stop offset="1" stop-color="#bafcda" stop-opacity="0"/></radialGradient>
+    <symbol id="guide" viewBox="0 0 320 320">
+      <circle cx="163" cy="162" r="139" fill="url(#exp-glow)"/>
+      <ellipse cx="165" cy="282" rx="80" ry="12" fill="#050d15" opacity=".28"/>
+      <path d="M88 245 57 266 72 278 108 267M225 245l33 21-14 12-35-11" fill="#dfc68c" stroke="#23343a" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 196Q69 215 76 259L116 269 160 254 206 269 247 256Q245 214 222 196Z" fill="#365669" stroke="#182e3d" stroke-width="5"/>
+      <path d="m110 207 50 19 51-20-11 51-40-14-40 14Z" fill="#71958a"/>
+      <path d="M99 117Q97 84 126 69L193 69Q225 84 223 117L214 201Q160 225 105 201Z" fill="#173d43" stroke="#d9bd7e" stroke-width="6"/>
+      <path d="M112 124H209L201 192Q160 209 119 192Z" fill="url(#exp-jade)" opacity=".9"/>
+      <path d="M145 176Q124 153 148 133Q149 151 161 144Q169 124 169 113Q192 145 180 167Q172 181 157 185Z" fill="#e2ffd9"/>
+      <path d="M151 178q-6-15 12-28 14 15 0 30Z" fill="#f9d795"/>
+      <path d="M101 109H221M107 198H214" fill="none" stroke="#efd59c" stroke-width="7" stroke-linecap="round"/>
+      <path d="M118 77Q118 51 160 47Q199 50 201 77" fill="none" stroke="#a6845f" stroke-width="9"/>
+      <path d="M128 73Q128 58 160 56Q189 59 190 73" fill="none" stroke="#f5dbaa" stroke-width="4"/>
+      <path d="m97 98 27-21h72l29 21Z" fill="url(#exp-brass)" stroke="#655744" stroke-width="4"/>
+      <path d="M104 223q-19-13-30 2l-8 24q13 8 22-5M217 222q18-13 29 3l8 24q-13 8-22-5" fill="#ead5ab" stroke="#263d45" stroke-width="4"/>
+      <path d="m93 238 66 16 65-16-6 30-59 16-59-17Z" fill="#ceb481" stroke="#3c4650" stroke-width="4"/>
+      <path d="m95 235 64 12 63-12-4 25-59 15-61-16Z" fill="#f3e6c6"/>
+      <path d="M159 247v28M109 247l35 8M177 255l32-8" fill="none" stroke="#b3966d" stroke-width="3" stroke-linecap="round"/>
+      <path d="m64 130 4 11 12 4-12 4-4 11-4-11-12-4 12-4Zm184-25 3 9 10 3-10 3-3 9-3-9-10-3 10-3Z" fill="#f5dfab"/>
+      <circle cx="49" cy="200" r="3" fill="#94d7be"/><circle cx="270" cy="181" r="4" fill="#ead298"/><circle cx="217" cy="45" r="3" fill="#a1cabd"/>
+    </symbol>
+    <symbol id="keeper" viewBox="0 0 320 320">
+      <ellipse cx="163" cy="277" rx="104" ry="16" fill="#030611" opacity=".28"/>
+      <path d="M87 143Q62 125 53 140Q43 155 65 176Q32 183 40 200Q46 213 76 207Q45 234 61 247Q77 257 95 234L88 274 120 265 140 283 164 266 189 283 207 265 236 274 226 232Q250 259 265 244Q277 231 251 207Q282 211 286 194Q287 178 259 176Q279 150 265 139Q252 128 233 144L223 94 191 67 139 61 102 86Z" fill="url(#exp-ink)" stroke="#252c43" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M110 99Q96 60 79 65Q73 89 96 124M213 102q20-44 36-35 3 27-24 57" fill="#b6a4cb" stroke="#343451" stroke-width="5"/>
+      <path d="M97 139Q125 106 159 125Q194 105 230 139L216 179Q161 205 104 177Z" fill="#212d42"/>
+      <path d="m110 142 32 4-8 17-22-6m98-15-32 4 8 17 22-6" fill="#ffdf9d" stroke="#f4b975" stroke-width="2"/>
+      <path d="M137 184q22 14 46 0" fill="none" stroke="#afa3c9" stroke-width="5" stroke-linecap="round"/>
+      <path d="M100 84 86 57l75-26 77 26-12 27-65-18Z" fill="#42646b" stroke="#253448" stroke-width="5"/>
+      <path d="m89 57 71 16 75-17-73-21Z" fill="#d7c6a2"/>
+      <path d="m107 57 52 11 52-11-51-12Z" fill="#927d6f"/><path d="M160 35v31" stroke="#5b6370" stroke-width="3"/>
+      <path d="m98 222 62 11 66-12-10 48-55 13-56-15Z" fill="#d8c7a2" stroke="#353448" stroke-width="5"/>
+      <path d="m105 220 55 10 60-10-7 38-52 13-50-15Z" fill="#f3e6c7"/>
+      <path d="M161 231v39m-36-36 22 5m27 0 24-6m-74 17 23 5m28 0 23-6" fill="none" stroke="#ac956f" stroke-width="3" stroke-linecap="round"/>
+      <path d="M92 223q-7 20 16 15m118-16q6 21-17 15" fill="none" stroke="#a79ac1" stroke-width="11" stroke-linecap="round"/>
+      <path d="m58 86 4 10 10 4-10 4-4 10-4-10-10-4 10-4Zm203 13 3 7 8 3-8 3-3 8-3-8-8-3 8-3Z" fill="#dac5f2"/>
+      <path d="M30 153q-5 9 1 13m258 78q7 11 1 17" fill="none" stroke="#7977a7" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="gate" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#314f4b"/><path d="M68 267V124h43v143m98 0V124h43v143" fill="#a1b7a0" stroke="#203e40" stroke-width="6"/>
+      <path d="M41 123q44-18 51-43h136q9 26 51 43l-27 18H68Z" fill="#e4c181" stroke="#315151" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M92 81q34-12 68-42 32 29 68 42" fill="#648f83" stroke="#c9c798" stroke-width="6"/>
+      <path d="M120 267V160q39-34 80 0v107" fill="#152f37"/><path d="M132 267v-99q28-22 56 0v99" fill="#70b2a3"/>
+      <path d="M55 270h210M78 244h23m118 0h22M160 179v68" fill="none" stroke="#e4d8ac" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="160" cy="147" r="11" fill="#f6df9d"/>
+    </symbol>
+    <symbol id="river" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#294658"/><path d="M41 151 100 70l58 67 40-40 81 62" fill="#537d81"/><path d="m78 100 22-30 26 30-27-7Z" fill="#bed5ca"/>
+      <path d="M174 71q66 47-7 84t-14 67q18 30-37 59" fill="none" stroke="#a3d5cc" stroke-width="37"/>
+      <path d="M174 71q66 47-7 84t-14 67q18 30-37 59" fill="none" stroke="#4a9dad" stroke-width="19"/>
+      <path d="m68 215 38 2m101 31 39-4" stroke="#739b92" stroke-width="8" stroke-linecap="round"/>
+      <g fill="#eed9a0" stroke="#365d68" stroke-width="5"><circle cx="188" cy="103" r="13"/><circle cx="138" cy="179" r="13"/><circle cx="148" cy="244" r="13"/></g>
+    </symbol>
+    <symbol id="tower" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#544458"/><path d="M97 263V160h126v103Z" fill="#bb8d7b" stroke="#54465b" stroke-width="6"/>
+      <path d="M115 165v-54h90v54" fill="#d6ad8c"/><path d="M136 115V79h48v36" fill="#edd0a1"/>
+      <path d="m67 167 48-31h90l48 31-21 15H87Zm26-57 43-31h48l43 31-22 13h-90Zm29-36 38-35 38 35-13 11h-51Z" fill="#6e9a99" stroke="#354b5b" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M143 264v-59h34v59m-96 2h160M135 139h50" fill="#514558" stroke="#e1bd95" stroke-width="6" stroke-linecap="round"/>
+      <path d="M111 197h17m64 0h17" stroke="#f1d6a4" stroke-width="8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="storm" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#5b4149"/><path d="M77 175q-35-38 2-62 11-44 49-27 33-39 62-8 45-9 50 33 49 6 37 49-6 19-36 20Z" fill="#d2b9ad" stroke="#674e60" stroke-width="6"/>
+      <path d="m154 145-33 62h35l-14 55 61-78h-39l25-39Z" fill="#f0d08e" stroke="#775851" stroke-width="5" stroke-linejoin="round"/>
+      <path d="m85 198-12 25m153-25 12 25M107 249l-5 12m117-16 7 16" stroke="#92bbba" stroke-width="9" stroke-linecap="round"/>
+      <path d="M98 133q21-12 37 1m56-13q21-7 35 10" fill="none" stroke="#9d8191" stroke-width="5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="serpent" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#294c55"/><path d="M78 246q-27-55 33-59t21-49q-45-32-15-67 25-29 73-9t29 65q-23 37-7 63 8 15 37 14" fill="none" stroke="#d9bf82" stroke-width="27" stroke-linecap="round"/>
+      <path d="M78 246q-27-55 33-59t21-49q-45-32-15-67 25-29 73-9t29 65q-23 37-7 63 8 15 37 14" fill="none" stroke="#f2d9a1" stroke-width="8" stroke-linecap="round"/>
+      <path d="M233 182q25-11 44 8l3 27-23 13-27-10Z" fill="#a8d4b6" stroke="#39696b" stroke-width="5"/>
+      <circle cx="263" cy="198" r="5" fill="#263d49"/><path d="m281 211 13 2m-55-27-5-16m24 8 7-14" stroke="#bad6b4" stroke-width="5" stroke-linecap="round"/>
+      <g fill="#6eaba2" stroke="#def1c5" stroke-width="4"><circle cx="90" cy="191" r="10"/><circle cx="124" cy="94" r="10"/><circle cx="212" cy="114" r="10"/></g>
+    </symbol>
+    <symbol id="bridge" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#48475d"/><path d="M47 244q40-25 77 0t76 0 73 0M64 265q35-18 69 0t68 0 55 0" fill="none" stroke="#6babb5" stroke-width="10" stroke-linecap="round"/>
+      <path d="M56 227V180Q160 68 264 180v47h-41q-7-64-63-64t-63 64Z" fill="#a6aea4" stroke="#464b61" stroke-width="6"/>
+      <path d="M48 177Q159 53 272 177" fill="none" stroke="#e9c58b" stroke-width="13" stroke-linecap="round"/>
+      <path d="M68 157v-30m45-8V90m47 9V70m47 49V90m45 67v-30" stroke="#dfb67f" stroke-width="9" stroke-linecap="round"/>
+      <path d="m78 192 28-21m106 0 28 21M135 151l-3-23m55 23 3-23" stroke="#6d7581" stroke-width="5"/>
+    </symbol>
+    <symbol id="mirror" viewBox="0 0 320 320">
+      <circle cx="160" cy="160" r="122" fill="#3e4357"/><path d="m160 42 97 59v118l-97 59-97-59V101Z" fill="#be986b" stroke="#6e6b73" stroke-width="6"/>
+      <path d="m160 65 77 47v96l-77 47-77-47v-96Z" fill="#71a6a4" stroke="#e3c38b" stroke-width="5"/>
+      <path d="m160 85 58 36v78l-58 35-58-35v-78Z" fill="#2f525c"/>
+      <path d="m160 103 14 40 43 17-43 16-14 40-15-40-42-16 42-17Z" fill="#dfdba9"/>
+      <circle cx="160" cy="160" r="18" fill="#9ad9bd" stroke="#f5dfac" stroke-width="5"/>
+      <path d="m99 111 15 8m91-8-15 8M98 207l16-9m92 9-16-9M160 71v15m0 149v15" stroke="#f9dfa3" stroke-width="5" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>

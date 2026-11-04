@@ -8,6 +8,9 @@
   var startedAt = 0, elapsedBeforePause = 0, protectedRaw = null, storageWarning = '', notice = '', dirty = false;
   var sourceLabels = {}, feedback = '', settingsOpen = false, busy = false;
   var sessionChoices = [], selectedChoice = null, usedHint = false;
+  var viewMode = 'world', worldTopic = null, effectContext = null;
+  function expeditionApi() { return window.MeridianExpedition; }
+  function isExpedition() { return !!(activeSession && activeSession.expedition && activeSession.expedition.version === 1 && expeditionApi()); }
   function day() { return E.localDay(); }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[c]; }); }
   function num(v) { return Number.isFinite(Number(v)) ? Number(v) : 0; }
@@ -81,6 +84,12 @@
     s.results = Array.isArray(s.results) ? s.results.filter(function (r) { return r && typeof r.id === 'string' && cardMap[r.id] && Number.isInteger(r.grade) && r.grade >= 0 && r.grade <= 3; }) : [];
     if (!s.retries || typeof s.retries !== 'object') s.retries = {};
     if (!s.drafts || typeof s.drafts !== 'object' || Array.isArray(s.drafts)) s.drafts = {};
+    if (s.expedition) {
+      if (s.expedition.version !== 1 || !expeditionApi() || s.ids.length > 6 || new Set(s.ids).size !== s.ids.length) return null;
+      if (s.expedition.approach !== 'play' && s.expedition.approach !== 'recall') return null;
+      if (s.expedition.phase !== 'primary' && s.expedition.phase !== 'repair') return null;
+      if (!s.expedition.forks || typeof s.expedition.forks !== 'object' || Array.isArray(s.expedition.forks)) s.expedition.forks = {};
+    }
     return s;
   }
   function currentDraft() {
@@ -95,7 +104,7 @@
     }
     ['usedHint', 'revealed', 'started'].forEach(function (field) { if (d[field] !== undefined && typeof d[field] !== 'boolean') { preserveInvalid(field); if (field !== 'started') d.usedHint = true; } });
     if (d.attemptId !== undefined && (typeof d.attemptId !== 'string' || !d.attemptId || d.attemptId.length > 240)) { preserveInvalid('attemptId'); d.usedHint = true; }
-    d.attemptId = typeof d.attemptId === 'string' && d.attemptId && d.attemptId.length <= 240 ? d.attemptId : activeSession.sessionId + ':' + key;
+    d.attemptId = typeof d.attemptId === 'string' && d.attemptId && d.attemptId.length <= 240 ? d.attemptId : activeSession.sessionId + ':' + (isExpedition() && card ? card.id : key);
     if (d.originalAnswer !== undefined && d.originalAnswer !== null && typeof d.originalAnswer !== 'string') { preserveInvalid('originalAnswer'); d.usedHint = true; }
     d.text = typeof d.text === 'string' ? d.text : '';
     d.originalAnswer = typeof d.originalAnswer === 'string' ? d.originalAnswer : null;
@@ -104,13 +113,31 @@
     d.started = d.started === true;
     d.elapsedMs = Math.max(0, num(d.elapsedMs));
     d.choiceValue = typeof d.choiceValue === 'string' ? d.choiceValue : null;
+    var interaction = isExpedition() && card ? expeditionApi().getInteraction(card, {approach:activeSession.expedition.approach, boss:activeSession.expedition.bossId === card.id}) : null;
     var choices = card && Array.isArray(card.choices) ? card.choices : [];
     if (!Array.isArray(d.choices) || d.choices.length !== choices.length || d.choices.some(function (v) { return typeof v !== 'string' || choices.indexOf(v) < 0; }) || new Set(d.choices).size !== new Set(choices).size) {
       if (d.choices !== undefined) { preserveInvalid('choices'); d.usedHint = true; }
       d.choices = choices.slice();
       for (var i = d.choices.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), tmp = d.choices[i]; d.choices[i] = d.choices[j]; d.choices[j] = tmp; }
     }
-    if (d.choiceValue !== null && d.choices.indexOf(d.choiceValue) < 0) { preserveInvalid('choiceValue'); d.usedHint = true; d.choiceValue = null; }
+    if (d.choiceValue !== null && (!interaction || interaction.type !== 'sequence') && d.choices.indexOf(d.choiceValue) < 0) { preserveInvalid('choiceValue'); d.usedHint = true; d.choiceValue = null; }
+    if (interaction) {
+      if (d.interactionType !== undefined && d.interactionType !== interaction.type) { preserveInvalid('interactionType'); d.usedHint = true; }
+      d.interactionType = interaction.type;
+      if (d.graded !== undefined && typeof d.graded !== 'boolean') { preserveInvalid('graded'); d.usedHint = true; }
+      d.graded = d.graded === true;
+      if (interaction.type === 'sequence') {
+        var fragments = interaction.fragments;
+        if (!Array.isArray(d.fragments) || d.fragments.length !== fragments.length || new Set(d.fragments).size !== fragments.length || d.fragments.some(function (v) { return fragments.indexOf(v) < 0; })) {
+          if (d.fragments !== undefined) { preserveInvalid('fragments'); d.usedHint = true; }
+          d.fragments = shuffle(fragments);
+        }
+        if (!Array.isArray(d.assembled) || new Set(d.assembled).size !== d.assembled.length || d.assembled.some(function (n) { return !Number.isInteger(n) || n < 0 || n >= fragments.length; })) {
+          if (d.assembled !== undefined) { preserveInvalid('assembled'); d.usedHint = true; }
+          d.assembled = [];
+        }
+      }
+    }
     if ((d.usedHint || d.revealed) && d.originalAnswer === null) d.originalAnswer = d.text;
     activeSession.drafts[key] = d;
     return d;
@@ -118,6 +145,7 @@
   function captureTime() {
     if (!activeSession || activeSession.index >= activeSession.ids.length) return;
     var d = currentDraft();
+    if (d && d.graded) { startedAt = 0; return; }
     if (startedAt) { elapsedBeforePause += Math.max(0, Date.now() - startedAt); startedAt = document.hidden ? 0 : Date.now(); }
     if (d) d.elapsedMs = elapsedBeforePause;
   }
@@ -212,7 +240,12 @@
     root.querySelectorAll('[data-return-intent]').forEach(function (input) { input.addEventListener('change', function () { refreshState(); state = E.recordReflection(state, {today:day(), returnIntent:input.value === '' ? null : Number(input.value)}); var saved = persist(), status = input.closest('fieldset').querySelector('[data-reflection-status]'); status.textContent = saved ? (input.value === '' ? '오늘 재방문 의향은 미측정으로 남깁니다.' : '오늘 재방문 의향을 기록했습니다. ' + input.value + '/4') : storageWarning; announce(status.textContent); }); });
   }
   function dashboard() {
+    if (expeditionApi() && viewMode !== 'plan') expeditionHome();
+    else planDashboard();
+  }
+  function planDashboard() {
     if (!ensureRoot()) return;
+    root.setAttribute('data-scene', 'plan');
     announce(storageWarning || '');
     activeSession = null;
     startedAt = 0; elapsedBeforePause = 0;
@@ -225,7 +258,7 @@
     var migrated = state.migrations && state.migrations.legacyV1 ? num(state.migrations.legacyV1.imported) : 0;
     var dday = p.daysRemaining > 0 ? 'D−' + p.daysRemaining : p.daysRemaining === 0 ? 'D-DAY' : '시험일 이후';
     root.innerHTML =
-      '<div class="ex-top"><div><div class="ex-eyebrow">MERIDIAN · EXAM PLAN</div><h1>오늘의 기억을<br>시험일까지.</h1><p class="ex-intro">전 범위를 먼저 만나고, 잊기 전에 다시 꺼냅니다.<br>남은 분량과 날짜로 오늘의 학습량을 계산합니다.</p></div><div class="ex-deadline"><div class="ex-dday">' + esc(dday) + '</div><div class="ex-date">' + esc(examDate.replace(/-/g, '.')) + ' 기말고사</div><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="settings">계획 설정</button></div></div>' +
+      (expeditionApi() ? '<button class="ex-btn ex-btn-quiet ex-btn-small xp-plan-return" data-action="world">← 원정 지도로</button>' : '') + '<div class="ex-top"><div><div class="ex-eyebrow">MERIDIAN · EXAM PLAN</div><h1>오늘의 기억을<br>시험일까지.</h1><p class="ex-intro">전 범위를 먼저 만나고, 잊기 전에 다시 꺼냅니다.<br>남은 분량과 날짜로 오늘의 학습량을 계산합니다.</p></div><div class="ex-deadline"><div class="ex-dday">' + esc(dday) + '</div><div class="ex-date">' + esc(examDate.replace(/-/g, '.')) + ' 기말고사</div><button class="ex-btn ex-btn-quiet ex-btn-small" data-action="settings">계획 설정</button></div></div>' +
       (storageWarning ? '<div class="ex-notice ex-notice-error" role="alert">' + esc(storageWarning) + '</div>' : '') +
       (notice ? '<div class="ex-notice" role="status">' + esc(notice) + '</div>' : '') +
       (p.studyDeadlinePassed ? '<div class="ex-notice">설정된 시험일입니다. 필수 분량의 마감은 시험 전날이며, 아직 남은 내용은 과목별 기록에서 확인하고 선택 복습할 수 있습니다. 다음 시험을 준비한다면 날짜를 바꿔주세요.</div>' : '') +
@@ -253,6 +286,7 @@
         var action = btn.dataset.action;
         if (action === 'start') start('today', 12);
         else if (action === 'resume') resume();
+        else if (action === 'world') { viewMode = 'world'; dashboard(); }
         else if (action === 'weak') start('weak', 5);
         else if (action === 'mock') start('mock', 20);
         else if (action === 'rescue') start('today', 2, null, true);
@@ -279,10 +313,11 @@
   }
   function reducedMotion() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
   function openTool(tool) {
-    if (tool && typeof window.__activate === 'function') { if (activeSession) { prepareToolVisit(); saveSession(); } window.__activate(tool); }
+    if (tool && typeof window.__activate === 'function') { if (activeSession) { prepareToolVisit(tool); saveSession(); } window.__activate(tool); }
   }
-  function prepareToolVisit() {
+  function prepareToolVisit(tool) {
     var draft = currentDraft(), card = activeSession && cardMap[activeSession.ids[activeSession.index]];
+    if (isExpedition()) markRoomExposure('', tool || (card && card.tool));
     if (!draft || !card || draft.revealed) return;
     freezeOriginal(card); draft.usedHint = true; usedHint = true; exposeCurrent(card);
   }
@@ -294,6 +329,7 @@
     dashboard(); announce(notice); return true;
   }
   function start(mode, limit, topic, rescue) {
+    viewMode = 'plan';
     stopLegacySession();
     refreshState();
     var cards = E.buildSession(C, state, {mode:mode, limit:limit, topic:topic, today:day(), seed:Date.now()});
@@ -302,12 +338,12 @@
     activeSession = {version:1, sessionId:'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10), day:day(), mode:mode, topic:topic || null, rescue:!!rescue, ids:cards.map(function (c) { return c.id; }), index:0, initialCount:cards.length, results:[], retries:{}, drafts:{}};
     startedAt = 0; elapsedBeforePause = 0; feedback = ''; saveSession(); renderCard();
   }
-  function resume() { stopLegacySession(); activeSession = getPending(); if (!activeSession) { start('today', 12); return; } feedback = '중단했던 질문과 원답부터 이어갑니다.'; renderCard(); }
+  function resume() { stopLegacySession(); activeSession = getPending(); if (!activeSession) { if (expeditionApi() && viewMode !== 'plan') expeditionHome(); else start('today', 12); return; } viewMode = isExpedition() ? 'world' : 'plan'; feedback = '중단했던 질문과 원답부터 이어갑니다.'; renderCard(); if (root && isExpedition()) root.scrollIntoView({block:'start'}); }
   function labelMode() { if (activeSession.rescue) return '첫 2분 · 짧은 세트'; return ({today:'오늘의 학습', weak:'약점 재대결', mock:'혼합 회상', topic:'주제 집중'})[activeSession.mode] || '회상 연습'; }
   function markStarted() {
     if (rolloverSession()) return false;
     var draft = currentDraft();
-    if (!draft || draft.revealed) return false;
+    if (!draft || draft.revealed || draft.graded) return false;
     if (!draft.started) {
       draft.started = true;
       startedAt = document.hidden ? 0 : Date.now();
@@ -361,7 +397,9 @@
     root.querySelectorAll('[data-grade]').forEach(function (b) { if ((incorrect || usedHint) && Number(b.dataset.grade) >= 2) b.disabled = true; b.addEventListener('click', function () { grade(Number(b.dataset.grade)); }); });
   }
   function renderCard() {
+    if (isExpedition()) { renderExpedition(); return; }
     if (!ensureRoot() || !activeSession) return;
+    root.setAttribute('data-scene', 'plan');
     if (rolloverSession()) return;
     announce(storageWarning || '');
     if (activeSession.index >= activeSession.ids.length) { checkpoint(); return; }
@@ -384,6 +422,7 @@
     root.scrollIntoView({block:'start'});
   }
   function reveal() {
+    if (isExpedition()) { revealExpedition(); return; }
     if (!activeSession || revealed) return;
     if (rolloverSession()) return;
     var card = cardMap[activeSession.ids[activeSession.index]], draft = currentDraft();
@@ -393,6 +432,7 @@
     announce(incorrect ? '선택한 답은 오답입니다. 원답과 정답의 차이를 확인하고 다시 연습으로 남깁니다.' : usedHint ? '힌트를 사용한 항목은 다시 확인할 대상으로 남깁니다.' : '원답을 보존했습니다. 정답과 비교해 채점하세요.');
   }
   function grade(value) {
+    if (isExpedition()) { gradeExpedition(value); return; }
     if (busy || !activeSession || !revealed || value < 0 || value > 3) return;
     busy = true;
     captureTime();
@@ -431,6 +471,7 @@
     persist();
   }
   function checkpoint() {
+    if (isExpedition()) { expeditionCheckpoint(); return; }
     var finished = activeSession, results = finished.results || [], unique = new Map();
     results.forEach(function (r) { unique.set(r.id, r.grade); });
     var correct = Array.from(unique.values()).filter(function (g) { return g >= 2; }).length;
@@ -445,6 +486,407 @@
     bindReversal(null);
     announce('한 묶음을 마쳤습니다. 실제 회복 ' + recovered + '개, 오늘 남은 계획은 ' + num(p.totalRemaining) + '개입니다.');
     root.scrollIntoView({block:'start'});
+  }
+  var REGIONS = {
+    systems:{symbol:'gate', name:'기경의 관문', line:'흩어진 계통에 이름을 되찾아 주세요.', color:'#e8bb72', x:22, y:22},
+    points:{symbol:'river', name:'오수의 강', line:'혈과 이름을 이어, 막힌 물길을 여세요.', color:'#77d4cd', x:50, y:45},
+    history:{symbol:'tower', name:'기록의 탑', line:'의가와 저서의 잊힌 기록을 찾아가세요.', color:'#c4a2ef', x:52, y:12},
+    syndromes:{symbol:'storm', name:'징후의 폭풍', line:'닮은 증상 사이에서 경맥을 찾아내세요.', color:'#eeb18a', x:81, y:29},
+    routes:{symbol:'serpent', name:'유주의 뱀길', line:'원문의 조각을 이어 다음 길을 여세요.', color:'#a7cf83', x:76, y:69},
+    back_cross:{symbol:'bridge', name:'교회의 다리', line:'높이와 교차점을 잇는 다리를 놓으세요.', color:'#80bfe5', x:18, y:67},
+    saam:{symbol:'mirror', name:'오행의 거울', line:'오행의 관계를 비추어 보사의 길을 찾으세요.', color:'#e6a5bf', x:45, y:83}
+  };
+  var OUTCOMES = {
+    recovered:{label:'실제 회복', title:'기억의 매듭이 풀렸습니다', line:'지난 오답을 날짜가 지난 첫 무힌트 회상으로 되찾았습니다.', glyph:'✦'},
+    'first-recall':{label:'직접 회상', title:'새로운 기억에 불이 켜졌습니다', line:'단서 없이 꺼낸 기억 하나가 지도에 남습니다.', glyph:'✧'},
+    connected:{label:'기억 연결', title:'기억과 기억 사이, 길이 이어졌습니다', line:'서로 다른 날에 직접 회상한 연결입니다.', glyph:'⌁'},
+    'first-choice':{label:'보기·조각 확인', title:'단서를 정확히 읽어냈습니다', line:'보기·조각을 사용해 정답을 확인했습니다. 직접 회상 기록과 따로 남깁니다.', glyph:'◇'},
+    corrected:{label:'오늘 교정', title:'오늘의 연결을 고쳤습니다', line:'원답은 그대로 남깁니다. 날짜가 지난 첫 회상에서 다시 확인합니다.', glyph:'↻'},
+    assisted:{label:'도움으로 확인', title:'실마리를 따라 길을 확인했습니다', line:'도움을 받은 응답입니다. 스스로 꺼낸 기억과 구별해 남깁니다.', glyph:'◌'},
+    miss:{label:'다시 볼 연결', title:'다음에 풀 실마리를 남겼습니다', line:'원답과 정답을 비교해 보세요. 이번 판의 문항 수는 늘어나지 않습니다.', glyph:'⋈'},
+    practice:{label:'다시 확인', title:'기억을 한 번 더 살펴봤습니다', line:'이번 응답은 연습으로 남습니다. 같은 기억을 반복해 지도를 부풀리지 않습니다.', glyph:'✓'},
+    duplicate:{label:'저장된 응답', title:'이 연결은 이미 기록했습니다', line:'저장된 결과에서 이어갑니다.', glyph:'✓'}
+  };
+  function shuffle(values) {
+    var result = values.slice();
+    for (var i = result.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), item = result[i]; result[i] = result[j]; result[j] = item; }
+    return result;
+  }
+  function regionInfo(id) { return REGIONS[id] || REGIONS.systems; }
+  function topicLabel(id) { var topic = C.topics.find(function (t) { return t.id === id; }); return topic ? topic.label : '경락'; }
+  function art(symbol, className, label) {
+    return '<svg class="xp-art ' + (className || '') + '" viewBox="0 0 320 320" ' + (label ? 'role="img" aria-label="' + esc(label) + '"' : 'aria-hidden="true"') + '><use href="expedition-art.svg#' + symbol + '"></use></svg>';
+  }
+  function expeditionPreferences() {
+    var p = state.expedition;
+    return {approach:p && p.approach === 'recall' ? 'recall' : 'play', sound:!!(p && p.sound === true)};
+  }
+  function setExpeditionPreference(key, value) {
+    refreshState();
+    var old = state.expedition && typeof state.expedition === 'object' && !Array.isArray(state.expedition) ? state.expedition : {};
+    state.expedition = Object.assign({}, old, {version:1}); state.expedition[key] = value; persist();
+  }
+  function soundButton() {
+    var on = expeditionPreferences().sound;
+    return '<button class="xp-text-button xp-sound" data-x-action="sound" aria-pressed="' + on + '" title="효과음 ' + (on ? '끄기' : '켜기') + '"><span aria-hidden="true">' + (on ? '♪' : '♩') + '</span> 효과음 ' + (on ? '켜짐' : '꺼짐') + '</button>';
+  }
+  function playEffect(kind) {
+    if (!expeditionPreferences().sound) return;
+    try {
+      var Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return;
+      if (!effectContext) effectContext = new Audio();
+      if (effectContext.state === 'suspended') effectContext.resume();
+      var notes = kind === 'recovered' ? [392, 523.25, 659.25] : kind === 'miss' ? [261.63, 293.66] : [392, 523.25];
+      notes.forEach(function (frequency, i) {
+        var oscillator = effectContext.createOscillator(), gain = effectContext.createGain(), now = effectContext.currentTime + i * .08;
+        oscillator.type = 'sine'; oscillator.frequency.value = frequency; gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(.035, now + .015); gain.gain.exponentialRampToValueAtTime(.001, now + .22);
+        oscillator.connect(gain); gain.connect(effectContext.destination); oscillator.start(now); oscillator.stop(now + .23);
+      });
+    } catch (err) { /* Effects are optional; a blocked audio context never interrupts a question. */ }
+  }
+  function bindExpeditionActions() {
+    root.querySelectorAll('[data-x-action]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var action = button.dataset.xAction;
+        if (action === 'start' || action === 'next-route') startExpedition('primary');
+        else if (action === 'repair') startExpedition('repair');
+        else if (action === 'resume') resume();
+        else if (action === 'plan') { if (activeSession) saveSession(); viewMode = 'plan'; dashboard(); root.scrollIntoView({block:'start'}); }
+        else if (action === 'world' || action === 'finish') { if (activeSession) saveSession(); viewMode = 'world'; expeditionHome(); root.scrollIntoView({block:'start'}); }
+        else if (action === 'sound') {
+          var on = !expeditionPreferences().sound; setExpeditionPreference('sound', on);
+          button.setAttribute('aria-pressed', String(on)); button.innerHTML = '<span aria-hidden="true">' + (on ? '♪' : '♩') + '</span> 효과음 ' + (on ? '켜짐' : '꺼짐');
+          if (on) playEffect('practice');
+        }
+      });
+    });
+  }
+  function worldMapMarkup(world) {
+    var paths = ['M176 92 Q270 12 416 52', 'M416 52 Q570 30 648 124', 'M176 92 Q205 185 400 195', 'M648 124 Q530 238 400 195', 'M400 195 Q260 210 144 290', 'M400 195 Q620 220 608 298', 'M144 290 Q210 405 360 360', 'M608 298 Q520 400 360 360'];
+    return '<div class="xp-world-map" aria-label="경락 원정의 일곱 학습 구역"><div class="xp-map-grain"></div><svg class="xp-world-lines" viewBox="0 0 800 430" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="400" cy="215" rx="359" ry="194" class="xp-map-orbit"/><ellipse cx="400" cy="215" rx="295" ry="159" class="xp-map-orbit xp-map-orbit-inner"/>' + paths.map(function (p) { return '<path d="' + p + '"/>'; }).join('') + '<path class="xp-map-river" d="M10 210 C110 148 210 365 355 233 S575 55 790 206"/></svg><div class="xp-map-compass" aria-hidden="true"><span>✧</span>MERIDIAN</div>' + world.topics.map(function (topic) {
+      var r = regionInfo(topic.id), selected = worldTopic === topic.id;
+      return '<button class="xp-region' + (selected ? ' is-selected' : '') + (topic.recalled ? ' is-lit' : '') + (topic.choiceConfirmed ? ' is-recognized' : '') + '" data-region="' + esc(topic.id) + '" aria-pressed="' + selected + '" style="--region:' + r.color + ';--rx:' + r.x + '%;--ry:' + r.y + '%"><span class="xp-region-island">' + art(r.symbol, '', '') + '<span class="xp-region-halo"></span></span><span class="xp-region-name">' + esc(r.name) + '</span><span class="xp-region-topic">' + esc(topic.label) + '</span><span class="xp-region-memory">' + (topic.recalled ? '✦ 회상 ' + topic.recalled : topic.choiceConfirmed ? '◇ 보기 확인 ' + topic.choiceConfirmed : '새로운 길') + '</span></button>';
+    }).join('') + '<span class="xp-map-caption">FIND YOUR WAY BACK</span></div>';
+  }
+  function expeditionHome() {
+    if (!expeditionApi()) { viewMode = 'plan'; planDashboard(); return; }
+    if (!ensureRoot()) return;
+    root.setAttribute('data-scene', 'world'); activeSession = null; startedAt = 0; elapsedBeforePause = 0; busy = false;
+    refreshState(); pendingSession = getPending();
+    var X = expeditionApi(), today = X.getDay(C, state, {today:day()}), world = X.getWorld(C, state, {today:day()}), pref = expeditionPreferences();
+    var room = X.buildRoom(C, state, {today:day(), topic:worldTopic, approach:pref.approach, phase:'primary'});
+    var chosenTopic = worldTopic || (room.ids[0] && cardMap[room.ids[0]].topic) || C.topics[0].id, region = regionInfo(chosenTopic);
+    var chosen = world.topics.find(function (t) { return t.id === chosenTopic; }), isPending = !!pendingSession, count = isPending ? pendingSession.ids.length : room.ids.length;
+    var button = isPending ? '<button class="xp-primary" data-x-action="resume">' + (pendingSession.expedition ? '원정 이어가기' : '진행 중인 학습 이어가기') + '<span aria-hidden="true">→</span></button>' : count ? '<button class="xp-primary" data-x-action="start">' + count + '문항 원정 시작<span aria-hidden="true">→</span></button>' : today.unresolved ? '<button class="xp-primary" data-x-action="repair">남은 연결 살펴보기<span aria-hidden="true">→</span></button>' : '<button class="xp-primary" data-x-action="plan">학습 기록 살펴보기<span aria-hidden="true">↗</span></button>';
+    var roomLine = isPending ? '중단한 위치와 원답이 기다립니다.' : count ? '길을 고르고, 정한 ' + count + '문항에서 끝나는 한 판.' : today.status === 'after-exam' ? '설정한 시험일 이후입니다. 기록에서 날짜와 연습을 선택하세요.' : today.unresolved ? '첫 원정은 마쳤습니다. 다시 확인할 연결이 남아 있습니다.' : '오늘의 계획을 마쳤습니다. 여기서 쉬어도 좋습니다.';
+    root.innerHTML = '<div class="xp-home"><header class="xp-topbar"><div class="xp-wordmark"><span class="xp-wordmark-mark" aria-hidden="true">✧</span> MERIDIAN <span>기억을 잇는 세계</span></div><nav aria-label="원정 보조 메뉴">' + soundButton() + '<button class="xp-text-button" data-x-action="plan">학습 기록 · 계획 <span aria-hidden="true">↗</span></button></nav></header>' +
+      (storageWarning ? '<div class="ex-notice ex-notice-error" role="alert">' + esc(storageWarning) + '</div>' : '') + (notice ? '<div class="ex-notice" role="status">' + esc(notice) + '</div>' : '') +
+      '<div class="xp-home-heading"><div><p class="xp-eyebrow">THE MERIDIAN EXPEDITION</p><h1>흩어진 기억을,<br><em>하나의 길로.</em></h1></div><p>일곱 구역을 건너고,<br>어제의 오답과 다시 만나는 원정.</p></div>' +
+      '<div class="xp-world-layout"><section class="xp-map-panel"><div class="xp-map-label"><span><i></i> 원정 지도</span><button class="xp-text-button' + (!worldTopic ? ' is-active' : '') + '" id="expedition-recommend">추천 경로</button></div>' + worldMapMarkup(world) + '<div class="xp-map-legend"><span><i class="xp-legend-lit"></i>직접 떠올린 기억</span><span><i class="xp-legend-choice"></i>보기로 확인한 기억</span><span class="xp-map-note">학습을 위한 상상 지도</span></div></section>' +
+      '<aside class="xp-departure" style="--region:' + region.color + '"><div class="xp-guide-welcome">' + art('guide', 'xp-guide-hero', '등불을 든 원정 안내자') + '<p>길은 작게 열고,<br><strong>기억은 직접 찾아요.</strong></p></div><div class="xp-route-intro"><p class="xp-eyebrow">' + (worldTopic ? '선택한 구역을 먼저' : '오늘의 추천 경로') + '</p><h2>' + esc(region.name) + '</h2><p>' + esc(region.line) + '</p></div>' +
+      '<div class="xp-approaches" role="group" aria-label="공략 방식"><button data-approach="play" aria-pressed="' + (pref.approach === 'play') + '"><span aria-hidden="true">◇</span><strong>플레이</strong><small>원래 보기 · 조각 맞추기</small></button><button data-approach="recall" aria-pressed="' + (pref.approach === 'recall') + '"><span aria-hidden="true">✧</span><strong>직접 회상</strong><small>내 힘으로 답 꺼내기</small></button></div>' +
+      '<div class="xp-departure-route" aria-label="이번 판 ' + count + '문항">' + Array.from({length:count}, function (_, i) { var boss = isPending ? pendingSession.expedition && pendingSession.ids[i] === pendingSession.expedition.bossId : room.ids[i] === room.bossId; return '<span class="' + (boss ? 'is-boss' : '') + '">' + (boss ? '⋈' : i + 1) + '</span>'; }).join('') + '</div>' +
+      (room.bossId && !isPending ? '<p class="xp-boss-teaser"><span aria-hidden="true">⋈</span> 지난 오답의 <b>기억 매듭</b>이 기다립니다.</p>' : '') + button + '<p class="xp-room-promise">' + roomLine + '</p><div class="xp-region-proof"><span>이 구역의 기억</span><b>회상 ' + num(chosen && chosen.recalled) + ' <i>·</i> 보기 확인 ' + num(chosen && chosen.choiceConfirmed) + '</b></div></aside></div>' +
+      '<footer class="xp-home-foot"><div><span class="xp-tiny-label">오늘의 실제 계획</span><p>' + (today.status === 'after-exam' ? '설정한 학습 기간 종료' : today.remaining ? '아직 만나지 않은 질문 <b>' + today.remaining + '</b>개' : '오늘의 첫 시도 완료') + ' <span>·</span> 다시 확인 <b>' + today.unresolved + '</b>개 <span>·</span> 전체 남은 필수 <b>' + today.requiredRemaining + '</b>개</p></div><div class="xp-world-proof"><span><b>' + world.totals.recalled + '</b> 직접 회상</span><span><b>' + world.totals.recovered + '</b> 실제 회복</span><button class="xp-text-button" data-x-action="plan">예약 · 원답 · 백업 ↗</button></div></footer></div>';
+    bindExpeditionActions();
+    root.querySelectorAll('[data-region]').forEach(function (button) { button.addEventListener('click', function () { worldTopic = button.dataset.region; expeditionHome(); }); });
+    root.querySelectorAll('[data-approach]').forEach(function (button) { button.addEventListener('click', function () { setExpeditionPreference('approach', button.dataset.approach); expeditionHome(); }); });
+    root.querySelector('#expedition-recommend').addEventListener('click', function () { worldTopic = null; expeditionHome(); });
+    announce(storageWarning || '구역과 공략 방식을 고르고, 짧은 원정을 시작하세요.');
+  }
+  function startExpedition(phase, topic, approach) {
+    if (!expeditionApi()) return;
+    stopLegacySession(); refreshState();
+    var selectedTopic = topic === undefined ? worldTopic : topic, selectedApproach = approach || expeditionPreferences().approach;
+    var room = expeditionApi().buildRoom(C, state, {today:day(), topic:selectedTopic, approach:selectedApproach, phase:phase === 'repair' ? 'repair' : 'primary'});
+    if (!room.ids.length) { notice = phase === 'repair' ? '지금 다시 확인할 연결은 없습니다.' : '오늘의 첫 원정을 모두 마쳤습니다. 남은 교정과 계획은 기록에서 확인할 수 있습니다.'; viewMode = 'world'; expeditionHome(); return; }
+    viewMode = 'world';
+    activeSession = {version:1, sessionId:'expedition-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10), day:day(), mode:'expedition', topic:selectedTopic || null, ids:room.ids.slice(), index:0, initialCount:room.ids.length, results:[], retries:{}, drafts:{}, expedition:Object.assign({version:1, forks:{}}, room)};
+    startedAt = 0; elapsedBeforePause = 0; feedback = ''; busy = false; saveSession(); renderExpedition(); root.scrollIntoView({block:'start'});
+  }
+  function markRoomExposure(material, tool) {
+    if (!isExpedition()) return;
+    var currentId = activeSession.ids[activeSession.index], answered = new Set(activeSession.results.map(function (r) { return r.id; })), text = String(material || '');
+    refreshState();
+    var todayEntry = state.days[day()] || {}, plan = E.getPlan(C, state, day());
+    (todayEntry.reviewedIds || []).forEach(function (id) { answered.add(id); });
+    var candidates = new Set(activeSession.ids);
+    (plan.dueCards || []).concat(plan.newCards || []).forEach(function (card) { candidates.add(card.id); });
+    var observed = state.reversal && state.reversal.days && state.reversal.days[day()], exposures = observed && observed.exposures || {}, changed = false;
+    candidates.forEach(function (id) {
+      var card = cardMap[id];
+      if (id === currentId || answered.has(id) || !card || (state.records[id] && state.records[id].lastReviewed === day()) || Object.prototype.hasOwnProperty.call(exposures, id)) return;
+      if ((tool && card.tool === tool) || (typeof card.answer === 'string' && card.answer && text.indexOf(card.answer) >= 0)) {
+        state = E.recordExposure(state, id, {today:day(), attemptId:null}); changed = true;
+      }
+    });
+    if (changed) persist();
+  }
+  function roomResult(session, id) { return session.results.find(function (r) { return r.id === id; }); }
+  function outcomeInfo(result) { var kind = result && result.outcome && result.outcome.kind; return OUTCOMES[kind] || OUTCOMES.practice; }
+  function roomMapMarkup(session, complete) {
+    var count = session.ids.length, nodes = session.ids.map(function (id, index) { return {x:count === 1 ? 50 : 7 + index * 86 / (count - 1), y:index % 2 ? 32 : 63}; });
+    var paths = nodes.slice(1).map(function (n, i) {
+      var previous = nodes[i], result = roomResult(session, session.ids[i]);
+      var kind = result && result.outcome && OUTCOMES[result.outcome.kind] ? result.outcome.kind : 'pending';
+      return '<path class="xp-path-' + kind + '" d="M' + previous.x + ',' + previous.y + ' C' + (previous.x + (n.x - previous.x) / 2) + ',' + previous.y + ' ' + (previous.x + (n.x - previous.x) / 2) + ',' + n.y + ' ' + n.x + ',' + n.y + '"/>';
+    }).join('');
+    return '<div class="xp-room-map' + (complete ? ' is-complete' : '') + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + paths + '</svg><ol aria-label="이번 원정의 ' + count + '개 연결">' + session.ids.map(function (id, index) {
+      var result = roomResult(session, id), kind = result && result.outcome && OUTCOMES[result.outcome.kind] ? result.outcome.kind : (!complete && index === session.index ? 'current' : 'pending');
+      var boss = session.expedition.bossId === id, info = result ? outcomeInfo(result) : null;
+      return '<li data-room-node="' + index + '" data-result="' + kind + '"' + (boss ? ' data-boss="true"' : '') + (index === session.index && !complete ? ' aria-current="step"' : '') + ' style="--nx:' + nodes[index].x + '%;--ny:' + nodes[index].y + '%"><span class="xp-node-ring"><span>' + (info ? info.glyph : boss ? '⋈' : index + 1) + '</span></span><span class="xp-node-label">' + (boss ? '기억 매듭' : info ? info.label : '연결 ' + (index + 1)) + '</span></li>';
+    }).join('') + '</ol></div>';
+  }
+  function canFork() {
+    if (!isExpedition()) return false;
+    var s = activeSession, index = s.index, x = s.expedition;
+    if ((index !== 1 && index !== 3) || index + 1 >= s.ids.length || x.forks[String(index)]) return false;
+    return [index, index + 1].every(function (i) {
+      var d = s.drafts[String(i)];
+      return s.ids[i] !== x.bossId && s.ids[i] !== x.reservedFirstId && !(d && (d.started || d.revealed || d.graded || d.presented));
+    });
+  }
+  function chooseFork(offset) {
+    if (rolloverSession() || !canFork() || (offset !== 0 && offset !== 1)) return;
+    var s = activeSession, index = s.index;
+    if (offset === 1) {
+      var id = s.ids[index]; s.ids[index] = s.ids[index + 1]; s.ids[index + 1] = id;
+      var a = String(index), b = String(index + 1), draft = s.drafts[a];
+      if (s.drafts[b]) s.drafts[a] = s.drafts[b]; else delete s.drafts[a];
+      if (draft) s.drafts[b] = draft; else delete s.drafts[b];
+    }
+    s.expedition.ids = s.ids.slice(); s.expedition.forks[String(index)] = s.ids[index];
+    startedAt = 0; elapsedBeforePause = 0; saveSession(); renderExpedition(); root.scrollIntoView({block:'start'});
+  }
+  function roomHeader() {
+    return '<header class="xp-play-top"><button class="xp-text-button" data-x-action="world">← 지도에 쉬어가기</button><span class="xp-room-name">' + (activeSession.expedition.phase === 'repair' ? '다시 잇는 원정' : activeSession.expedition.approach === 'play' ? '플레이 원정' : '직접 회상 원정') + ' <b>' + (activeSession.index + 1) + ' / ' + activeSession.ids.length + '</b></span>' + soundButton() + '</header>';
+  }
+  function renderFork() {
+    root.innerHTML = '<div class="xp-play">' + roomHeader() + roomMapMarkup(activeSession, false) + '<section class="xp-fork"><div class="xp-fork-guide">' + art('guide', '', '길을 안내하는 등불 친구') + '</div><p class="xp-eyebrow">CHOOSE YOUR NEXT CONNECTION</p><h1>어느 길부터 열까요?</h1><p class="xp-fork-note">먼저 풀 질문을 고르세요. 다른 질문도 이번 판에 남습니다.</p><div class="xp-fork-options">' + [0, 1].map(function (offset) {
+      var card = cardMap[activeSession.ids[activeSession.index + offset]], region = regionInfo(card.topic), interaction = expeditionApi().getInteraction(card, {approach:activeSession.expedition.approach, boss:false});
+      return '<button data-fork="' + offset + '" style="--region:' + region.color + '">' + art(region.symbol, '', '') + '<span class="xp-fork-topic">' + esc(topicLabel(card.topic)) + '</span><strong>' + esc(card.prompt.length > 100 ? card.prompt.slice(0, 100) + '…' : card.prompt) + '</strong><span class="xp-fork-type">' + (interaction.type === 'sequence' ? '조각 잇기' : interaction.type === 'choice' ? '보기 도전' : '직접 회상') + '<i aria-hidden="true">→</i></span></button>';
+    }).join('') + '</div></section></div>';
+    bindExpeditionActions();
+    root.querySelectorAll('[data-fork]').forEach(function (button) { button.addEventListener('click', function () { chooseFork(Number(button.dataset.fork)); }); });
+    announce('갈림길입니다. 다음 두 질문 중 먼저 풀 질문을 고르세요.');
+  }
+  function expeditionAttemptEvent(card, attemptId) {
+    var record = state.records[card.id];
+    return record && Array.isArray(record.history) ? record.history.find(function (event) { return event.attemptId === attemptId && event.day === day(); }) : null;
+  }
+  function storedExpeditionResult(card, draft, event) {
+    var existing = draft.result;
+    if (existing && existing.attemptId === draft.attemptId && existing.grade === event.grade && existing.outcome && OUTCOMES[existing.outcome.kind]) return existing;
+    var kind = event.grade < 2 ? (event.usedHint ? 'assisted' : 'miss') : event.reversalStatus === 'recovered' ? 'recovered' : event.reversalStatus === 'corrected' ? 'corrected' : event.usedHint ? 'assisted' : 'practice';
+    return {id:card.id, grade:event.grade, attemptId:draft.attemptId, seconds:num(event.seconds), reversalStatus:event.reversalStatus || null, evidence:event.evidence, unaided:event.unaided === true, firstOfDay:event.firstOfDay === true, usedHint:event.usedHint === true, outcome:{kind:kind, advancesMemory:false, advancesChoice:false, breaksBoss:kind === 'recovered', source:event.usedHint ? 'assisted' : event.evidence === 'choice' ? 'choice' : event.unaided ? 'self-recall' : 'none'}};
+  }
+  function addExpeditionResult(result) {
+    var index = activeSession.results.findIndex(function (r) { return r.attemptId === result.attemptId; });
+    if (index < 0) activeSession.results.push(result); else activeSession.results[index] = result;
+  }
+  function validSubmission(draft) {
+    var s = draft.submission;
+    return s && s.version === 1 && s.attemptId === draft.attemptId && s.day === activeSession.day && s.type === draft.interactionType && Number.isInteger(s.grade) && s.grade >= 0 && s.grade <= 3 && (s.choiceValue === null || typeof s.choiceValue === 'string');
+  }
+  function expeditionRecallMarkup(draft) {
+    var hint = draft.choices.length ? '<button class="xp-text-button xp-hint-button" id="exam-choice-hint"' + (draft.usedHint || draft.revealed ? ' hidden' : '') + '>단서 열기 · 원래 보기</button>' : '';
+    if (draft.usedHint && draft.choices.length && !draft.revealed) hint += '<div class="xp-choice-list xp-hint-choices">' + draft.choices.map(function (choice, index) { return '<button class="xp-choice" data-x-choice="' + index + '" aria-pressed="' + (draft.choiceValue === choice) + '"><span class="xp-choice-letter">' + (index + 1) + '</span><span>' + esc(choice) + '</span></button>'; }).join('') + '</div>';
+    return '<label class="xp-answer-field" for="exam-scratch"><span>먼저 떠올린 답</span><textarea id="exam-scratch" rows="2" maxlength="2000" placeholder="핵심만 적거나, 말로 회상해 보세요." autocomplete="off"' + (draft.originalAnswer !== null ? ' readonly' : '') + '>' + esc(draft.text) + '</textarea></label><div class="xp-recall-tools"><button class="xp-text-button" id="exam-recall-start"' + (draft.started || draft.revealed ? ' hidden' : '') + '>말로 회상 시작</button>' + hint + '</div><p id="exam-attempt-note" class="xp-attempt-note">' + (draft.revealed ? '확인 전 원답이 보존되었습니다.' : draft.started ? '떠올린 답을 정답과 비교해 주세요.' : '입력하거나 회상을 시작하면 시간을 기록합니다.') + '</p><button class="xp-primary" id="exam-reveal"' + (draft.revealed ? ' hidden' : '') + '>답 확인<span class="xp-key">Space</span></button><div id="exam-answer-area"' + (draft.revealed ? '' : ' hidden') + '></div>';
+  }
+  function objectiveMarkup(draft) {
+    if (draft.interactionType === 'choice') return '<p class="xp-task-instruction">정답이라고 생각하는 문을 골라 주세요.</p><div class="xp-choice-list">' + draft.choices.map(function (choice, index) {
+      return '<button class="xp-choice" data-x-choice="' + index + '" aria-pressed="' + (draft.choiceValue === choice) + '"><span class="xp-choice-letter">' + String.fromCharCode(65 + index) + '</span><span>' + esc(choice) + '</span><span class="xp-choice-check" aria-hidden="true">' + (draft.choiceValue === choice ? '✓' : '→') + '</span></button>';
+    }).join('') + '</div><button class="xp-primary" id="expedition-submit"' + (draft.choiceValue === null ? ' disabled' : '') + '>이 답으로 연결<span aria-hidden="true">→</span></button><p class="xp-attempt-note">원래 보기로 도전 · 정답과 자동 비교합니다.</p>';
+    var count = draft.fragments.length;
+    return '<p class="xp-task-instruction">원문 조각을 순서대로 눌러 길을 완성하세요.</p><div class="xp-sequence-tray" aria-label="내가 조립한 순서">' + Array.from({length:count}, function (_, index) { var fragment = draft.assembled[index]; return '<div class="xp-sequence-slot' + (fragment === undefined ? '' : ' is-filled') + '"><span>' + (index + 1) + '</span>' + (fragment === undefined ? '<i>다음 조각</i>' : '<b>' + esc(draft.fragments[fragment]) + '</b>') + '</div>'; }).join('') + '</div><div class="xp-sequence-tools"><span>' + draft.assembled.length + ' / ' + count + '조각</span><button class="xp-text-button" id="expedition-undo"' + (!draft.assembled.length ? ' disabled' : '') + '>한 조각 되돌리기</button><button class="xp-text-button" id="expedition-reset"' + (!draft.assembled.length ? ' disabled' : '') + '>처음부터</button></div><div class="xp-fragments" aria-label="원문 조각">' + draft.fragments.map(function (fragment, index) { return '<button data-fragment="' + index + '"' + (draft.assembled.indexOf(index) >= 0 ? ' disabled aria-pressed="true"' : ' aria-pressed="false"') + '><span aria-hidden="true">' + (index + 1) + '</span>' + esc(fragment) + '</button>'; }).join('') + '</div><button class="xp-primary" id="expedition-submit"' + (draft.assembled.length !== count ? ' disabled' : '') + '>이 순서로 연결<span aria-hidden="true">→</span></button><p class="xp-attempt-note">원문 그대로의 조각 · 완성한 순서를 자동 비교합니다.</p>';
+  }
+  function comparisonMarkup(card, draft, withGrades) {
+    var record = state.records[card.id], previous = record && record.reversal && record.reversal.lastFailureAnswer;
+    var original = draft.originalAnswer || (draft.started ? '말로 회상 · 입력한 답 없음' : '입력한 답 없음');
+    var selected = draft.choiceValue && draft.choiceValue !== draft.originalAnswer ? '<p class="xp-submitted"><span>제출한 답</span>' + esc(draft.choiceValue) + '</p>' : '';
+    return '<div class="xp-comparison"><div><span class="xp-tiny-label">' + (draft.usedHint ? '힌트 전 내 답' : '내 답 · 보존') + '</span><p>' + esc(original) + '</p>' + selected + '</div><div><span class="xp-tiny-label">정답</span><p>' + esc(card.answer) + '</p></div></div>' +
+      (activeSession.expedition.bossId === card.id && previous && previous.attemptId !== draft.attemptId ? '<div class="xp-previous-answer"><span>지난번의 내 답</span><p>' + esc(previous.originalAnswer || '입력 없음 · 자가채점') + '</p></div>' : '') +
+      (card.detail ? '<details id="expedition-detail" class="xp-detail"' + (draft.detailOpen === true ? ' open' : '') + '><summary>원문 · 풀이 보기 <span aria-hidden="true">＋</span></summary><div>' + esc(card.detail) + '</div></details>' : '') +
+      (withGrades ? '<p class="xp-self-grade-note">' + (draft.usedHint ? '도움을 받은 답입니다. 다시 확인할 연결로 남깁니다.' : draft.started ? '내 답을 직접 비교해 채점해 주세요.' : '회상 시작 없이 확인했습니다. 첫 무힌트 성공으로 기록하지 않습니다.') + '</p><div class="xp-grades" aria-label="회상 결과 자가채점">' + [{grade:0,label:'몰랐음',sub:'다시 익히기'}, {grade:1,label:'헷갈림',sub:'다시 확인'}, {grade:2,label:'맞혔음',sub:'직접 회상'}, {grade:3,label:'바로 떠오름',sub:'확실한 회상'}].map(function (g) { return '<button data-grade="' + g.grade + '"' + (draft.usedHint && g.grade >= 2 ? ' disabled' : '') + '><span>' + (g.grade + 1) + '</span><strong>' + g.label + '</strong><small>' + g.sub + '</small></button>'; }).join('') + '</div>' : '');
+  }
+  function visibleComparisonExposure(card, draft) {
+    var record = state.records[card.id], prior = record && record.reversal && record.reversal.lastFailureAnswer;
+    markRoomExposure(card.answer + '\n' + (draft.originalAnswer || '') + '\n' + (draft.choiceValue || '') + (activeSession.expedition.bossId === card.id && prior && prior.attemptId !== draft.attemptId ? '\n' + (prior.originalAnswer || '') : ''));
+    if (draft.detailOpen === true) markRoomExposure(card.detail || '');
+  }
+  function bindComparison(card, draft) {
+    var detail = root.querySelector('#expedition-detail');
+    if (detail) detail.addEventListener('toggle', function () {
+      if (!activeSession || activeSession.ids[activeSession.index] !== card.id) return;
+      draft.detailOpen = detail.open === true;
+      if (draft.detailOpen) markRoomExposure(card.detail || '');
+      saveSession();
+    });
+    root.querySelectorAll('[data-grade]').forEach(function (button) { button.addEventListener('click', function () { gradeExpedition(Number(button.dataset.grade)); }); });
+  }
+  function renderExpedition() {
+    if (!isExpedition() || !ensureRoot()) return;
+    if (rolloverSession()) return;
+    root.setAttribute('data-scene', 'play');
+    if (activeSession.index >= activeSession.ids.length) { expeditionCheckpoint(); return; }
+    captureTime();
+    if (canFork()) { renderFork(); saveSession(); return; }
+    var card = cardMap[activeSession.ids[activeSession.index]], draft = currentDraft(), event = expeditionAttemptEvent(card, draft.attemptId);
+    if (event) {
+      draft.graded = true; draft.revealed = true; draft.result = storedExpeditionResult(card, draft, event); addExpeditionResult(draft.result);
+    } else if (validSubmission(draft)) {
+      draft.graded = false; draft.revealed = true;
+      if (draft.interactionType !== 'recall') draft.choiceValue = draft.submission.choiceValue;
+      gradeExpedition(draft.submission.grade, true, true); return;
+    } else if (draft.graded) { draft.graded = false; draft.usedHint = true; }
+    revealed = draft.revealed; usedHint = draft.usedHint; sessionChoices = draft.choices.slice(); selectedChoice = draft.choiceValue === null ? null : sessionChoices.indexOf(draft.choiceValue);
+    elapsedBeforePause = draft.elapsedMs; startedAt = draft.started && !draft.graded && !document.hidden ? Date.now() : 0;
+    if (draft.graded) { renderExpeditionOutcome(card, draft); saveSession(); return; }
+    draft.presented = true;
+    var region = regionInfo(card.topic), boss = activeSession.expedition.bossId === card.id;
+    if (draft.interactionType === 'choice' || (draft.interactionType === 'recall' && draft.usedHint)) markRoomExposure(draft.choices.join('\n'));
+    if (draft.interactionType === 'sequence') markRoomExposure(draft.fragments.join('\n'));
+    if (draft.revealed) visibleComparisonExposure(card, draft);
+    root.innerHTML = '<div class="xp-play">' + roomHeader() + roomMapMarkup(activeSession, false) + '<article class="xp-question-stage' + (boss ? ' is-boss' : '') + '" style="--region:' + region.color + '"><div class="xp-encounter-heading"><div><p class="xp-eyebrow">' + (boss ? 'MEMORY KNOT · 기억의 매듭' : 'CONNECTION ' + String(activeSession.index + 1).padStart(2, '0')) + '</p><span class="xp-topic-chip">' + esc(topicLabel(card.topic)) + '</span>' + (boss ? '<p class="xp-boss-note">지난 오답과 다시 만났습니다.<br>지금 떠오르는 답으로 매듭에 도전하세요.</p>' : '') + '</div>' + art(boss ? 'keeper' : region.symbol, boss ? 'xp-keeper' : 'xp-question-art', boss ? '지난 오답을 지키는 기억의 매듭' : '') + '</div><h1 class="xp-question">' + esc(card.prompt) + '</h1>' + (draft.interactionType === 'recall' ? expeditionRecallMarkup(draft) : objectiveMarkup(draft)) + '</article><div class="xp-question-foot"><span>' + (draft.interactionType === 'recall' ? '원답을 남기고, 스스로 비교합니다.' : '보기·조각 성공은 직접 회상과 따로 남깁니다.') + '</span><button class="xp-text-button" data-action="source">관련 도구 · 힌트로 보기 ↗</button></div></div>';
+    bindExpeditionActions();
+    root.querySelector('[data-action="source"]').addEventListener('click', function () { openTool(card.tool); });
+    bindExpeditionQuestion(card, draft);
+    if (draft.revealed && draft.interactionType === 'recall') { root.querySelector('#exam-answer-area').innerHTML = comparisonMarkup(card, draft, true); bindComparison(card, draft); }
+    saveSession();
+    announce(storageWarning || (boss ? '실제 과거 오답의 기억 매듭입니다.' : '연결 ' + (activeSession.index + 1) + ' / ' + activeSession.ids.length));
+  }
+  function bindExpeditionQuestion(card, draft) {
+    var scratch = root.querySelector('#exam-scratch'), oral = root.querySelector('#exam-recall-start'), revealButton = root.querySelector('#exam-reveal'), hint = root.querySelector('#exam-choice-hint');
+    if (scratch) scratch.addEventListener('input', function (event) { if (draft.revealed || draft.originalAnswer !== null || rolloverSession()) return; draft.text = event.target.value; markStarted(); });
+    if (oral) oral.addEventListener('click', markStarted);
+    if (revealButton) revealButton.addEventListener('click', revealExpedition);
+    if (hint) hint.addEventListener('click', function () { if (draft.revealed || rolloverSession()) return; freezeOriginal(card); draft.usedHint = true; usedHint = true; exposeCurrent(card); markRoomExposure(draft.choices.join('\n')); saveSession(); renderExpedition(); });
+    root.querySelectorAll('[data-x-choice]').forEach(function (button) { button.addEventListener('click', function () {
+      if (draft.graded || draft.revealed || !markStarted()) return;
+      var d = currentDraft(); if (!d || activeSession.ids[activeSession.index] !== card.id) return;
+      d.choiceValue = d.choices[Number(button.dataset.xChoice)]; saveSession(); renderExpedition();
+    }); });
+    root.querySelectorAll('[data-fragment]').forEach(function (button) { button.addEventListener('click', function () {
+      if (draft.graded || !markStarted()) return;
+      var d = currentDraft(), n = Number(button.dataset.fragment); if (!d || d.assembled.indexOf(n) >= 0) return;
+      d.assembled.push(n); d.choiceValue = d.assembled.map(function (i) { return d.fragments[i]; }).join(' → '); saveSession(); renderExpedition();
+    }); });
+    var undo = root.querySelector('#expedition-undo'), reset = root.querySelector('#expedition-reset'), submit = root.querySelector('#expedition-submit');
+    if (undo) undo.addEventListener('click', function () { if (rolloverSession() || draft.graded) return; draft.assembled.pop(); draft.choiceValue = draft.assembled.map(function (i) { return draft.fragments[i]; }).join(' → '); saveSession(); renderExpedition(); });
+    if (reset) reset.addEventListener('click', function () { if (rolloverSession() || draft.graded) return; draft.assembled = []; draft.choiceValue = null; saveSession(); renderExpedition(); });
+    if (submit) submit.addEventListener('click', submitObjective);
+  }
+  function revealExpedition() {
+    if (!isExpedition() || rolloverSession()) return;
+    var card = cardMap[activeSession.ids[activeSession.index]], draft = currentDraft();
+    if (draft.graded || draft.revealed || draft.interactionType !== 'recall') return;
+    freezeOriginal(card); draft.revealed = true; revealed = true; exposeCurrent(card); visibleComparisonExposure(card, draft); saveSession(); renderExpedition();
+  }
+  function submitObjective() {
+    if (!isExpedition() || rolloverSession()) return;
+    var card = cardMap[activeSession.ids[activeSession.index]], draft = currentDraft();
+    if (draft.graded || draft.interactionType === 'recall') return;
+    if (draft.interactionType === 'choice' && draft.choices.indexOf(draft.choiceValue) < 0) return;
+    if (draft.interactionType === 'sequence') {
+      if (draft.assembled.length !== draft.fragments.length) return;
+      draft.choiceValue = draft.assembled.map(function (i) { return draft.fragments[i]; }).join(' → ');
+    }
+    if (!draft.started && !markStarted()) return;
+    freezeOriginal(card); draft.revealed = true; revealed = true; exposeCurrent(card); visibleComparisonExposure(card, draft);
+    gradeExpedition(draft.choiceValue === card.answer ? 2 : 0, true);
+  }
+  function gradeExpedition(value, objective, restoring) {
+    if (!isExpedition() || busy || rolloverSession()) return;
+    var card = cardMap[activeSession.ids[activeSession.index]], draft = currentDraft();
+    if (draft.graded || !draft.revealed || !Number.isInteger(value) || value < 0 || value > 3) return;
+    if (draft.interactionType !== 'recall' && objective !== true) return;
+    if (draft.interactionType !== 'recall') value = draft.choiceValue === card.answer ? 2 : 0;
+    if (draft.usedHint || (draft.interactionType === 'recall' && draft.choiceValue !== null && draft.choiceValue !== card.answer)) value = Math.min(value, 1);
+    busy = true; captureTime();
+    var seconds = Math.round(draft.elapsedMs / 1000), evidence = draft.interactionType !== 'recall' || draft.usedHint || draft.choiceValue !== null ? 'choice' : 'recall';
+    if (restoring && validSubmission(draft)) seconds = Math.max(0, num(draft.submission.seconds));
+    draft.submission = {version:1, day:activeSession.day, attemptId:draft.attemptId, type:draft.interactionType, grade:value, choiceValue:draft.choiceValue, seconds:seconds};
+    saveSession(); refreshState();
+    var before = state;
+    state = E.review(state, card.id, value, {today:day(), now:Date.now(), seconds:seconds, evidence:evidence, unaided:draft.started && evidence === 'recall' && !draft.usedHint && activeSession.day === day(), usedHint:draft.usedHint, originalAnswer:draft.originalAnswer || '', attemptId:draft.attemptId});
+    var reviewed = state.lastReview || {};
+    if (reviewed.duplicate && reviewed.cardId !== card.id) {
+      draft.invalidFields = Object.assign({}, draft.invalidFields || {}, {collidingAttemptId:draft.attemptId});
+      draft.attemptId = activeSession.sessionId + ':' + card.id + ':restore-' + Date.now().toString(36);
+      draft.usedHint = true; draft.submission = null; draft.graded = false; draft.result = null;
+      busy = false; notice = '저장된 응답 식별자가 겹쳐 보수적으로 복원했습니다. 이 질문은 도움을 받은 응답으로 다시 확인합니다.'; saveSession(); renderExpedition(); announce(notice); return;
+    }
+    var outcome = expeditionApi().classifyOutcome(card, before, state, {today:day(), attemptId:draft.attemptId, choiceValue:draft.choiceValue});
+    var event = expeditionAttemptEvent(card, draft.attemptId);
+    var result = {id:card.id, grade:Number.isInteger(reviewed.grade) ? reviewed.grade : value, attemptId:draft.attemptId, seconds:seconds, reversalStatus:reviewed.reversalStatus || null, evidence:evidence, unaided:reviewed.unaided === true, firstOfDay:reviewed.firstOfDay === true, usedHint:draft.usedHint, outcome:outcome};
+    if (reviewed.duplicate && event) result = storedExpeditionResult(card, draft, event);
+    draft.result = result; draft.graded = true; draft.revealed = true; addExpeditionResult(result); startedAt = 0; elapsedBeforePause = draft.elapsedMs;
+    persist(); saveSession(); busy = false;
+    if (!restoring && !reviewed.duplicate) playEffect(outcome.kind);
+    renderExpedition();
+    var outcomeScene = root && root.querySelector('[data-outcome]'); if (outcomeScene) outcomeScene.scrollIntoView({block:'start'});
+  }
+  function renderExpeditionOutcome(card, draft) {
+    var result = draft.result, info = outcomeInfo(result), kind = result.outcome && OUTCOMES[result.outcome.kind] ? result.outcome.kind : 'practice', boss = activeSession.expedition.bossId === card.id;
+    visibleComparisonExposure(card, draft);
+    root.innerHTML = '<div class="xp-play">' + roomHeader() + roomMapMarkup(activeSession, false) + '<section class="xp-outcome xp-outcome-' + kind + '" data-outcome="' + kind + '"><div class="xp-outcome-scene' + (boss ? ' is-boss' : '') + '"><div class="xp-outcome-orbit"></div><div class="xp-outcome-spark xp-spark-one">✦</div><div class="xp-outcome-spark xp-spark-two">✧</div>' + art(boss ? 'keeper' : 'guide', boss ? 'xp-outcome-keeper' : 'xp-outcome-guide', boss ? '기억의 매듭' : '기록을 밝히는 등불 안내자') + '<div class="xp-outcome-seal" aria-hidden="true">' + info.glyph + '</div></div><p class="xp-eyebrow">' + info.label + '</p><h1>' + info.title + '</h1><p class="xp-outcome-message">' + info.line + '</p>' + (draft.interactionType !== 'recall' ? '<p class="xp-objective-verdict" data-objective-correct="' + (draft.choiceValue === card.answer && !draft.usedHint) + '">' + (draft.choiceValue === card.answer ? '✓ ' + (draft.interactionType === 'sequence' ? '원문의 순서와 일치합니다.' : '정답과 일치합니다.') : '↻ ' + (draft.interactionType === 'sequence' ? '원문의 순서를 다시 확인해 보세요.' : '고른 답과 정답을 비교해 보세요.')) + '</p>' : '') + '<div class="xp-outcome-answer"><p class="xp-result-prompt">' + esc(card.prompt) + '</p>' + comparisonMarkup(card, draft, false) + '</div><button class="xp-primary" id="expedition-next">' + (activeSession.index + 1 >= activeSession.ids.length ? '완성한 지도 보기' : '다음 연결로') + '<span aria-hidden="true">→</span></button><p class="xp-room-promise">' + (activeSession.index + 1 >= activeSession.ids.length ? '정한 문항을 모두 만났습니다. 이번 판을 마무리해요.' : '이번 판에 ' + (activeSession.ids.length - activeSession.index - 1) + '문항 남았습니다.') + '</p></section></div>';
+    bindExpeditionActions(); bindComparison(card, draft);
+    root.querySelector('#expedition-next').addEventListener('click', nextExpedition);
+    announce(info.title + '. ' + info.line);
+  }
+  function nextExpedition() {
+    if (!isExpedition() || rolloverSession() || !currentDraft().graded) return;
+    activeSession.index++; startedAt = 0; elapsedBeforePause = 0;
+    if (activeSession.index >= activeSession.ids.length) expeditionCheckpoint();
+    else { saveSession(); renderExpedition(); root.scrollIntoView({block:'start'}); }
+  }
+  function expeditionCheckpoint() {
+    if (!isExpedition() || !ensureRoot()) return;
+    var finished = activeSession;
+    if (finished.results.length < finished.ids.length) return;
+    recordBundle(finished);
+    var today = expeditionApi().getDay(C, state, {today:day()}), reversal = E.getReversal(C, state, day());
+    var counts = {recall:0, choice:0, corrected:0, recovered:0}, seconds = 0;
+    finished.results.forEach(function (result) {
+      seconds += num(result.seconds);
+      if (result.grade >= 2 && result.evidence === 'recall' && result.unaided) counts.recall++;
+      if (result.grade >= 2 && result.evidence === 'choice' && !result.usedHint) counts.choice++;
+      if (result.reversalStatus === 'corrected') counts.corrected++;
+      if (result.reversalStatus === 'recovered') counts.recovered++;
+    });
+    var candidate = (reversal.tomorrowCandidates || []).find(function (card) { return finished.ids.indexOf(card.id) >= 0 && finished.results.some(function (result) { return result.id === card.id && result.grade < 2; }); });
+    if (!candidate) candidate = (reversal.tomorrowCandidates || [])[0];
+    markRoomExposure(finished.ids.map(function (id) { return cardMap[id].answer; }).join('\n'));
+    activeSession = null; pendingSession = null; startedAt = 0; elapsedBeforePause = 0; saveSession();
+    root.setAttribute('data-scene', 'complete');
+    root.innerHTML = '<div class="xp-complete" id="expedition-complete"><header class="xp-play-top"><span class="xp-wordmark">✧ MERIDIAN</span><button class="xp-text-button" data-x-action="plan">학습 기록 ↗</button></header><div class="xp-complete-heading">' + art('guide', 'xp-complete-guide', '원정을 마친 등불 안내자') + '<p class="xp-eyebrow">EXPEDITION COMPLETE</p><h1>이번 길의 끝에 도착했습니다.</h1><p>' + finished.ids.length + '개의 연결을 살펴봤어요.<br>되찾은 기억도, 다시 볼 실마리도 이 지도에 남습니다.</p></div>' + roomMapMarkup(finished, true) + '<div class="xp-complete-stats"><div><b>' + counts.recall + '</b><span>직접 회상</span></div><div><b>' + counts.choice + '</b><span>보기·조각 정답</span></div><div><b>' + counts.corrected + '</b><span>오늘 교정</span></div><div><b>' + counts.recovered + '</b><span>실제 회복</span></div></div><p class="xp-complete-time">실제 응답 ' + (seconds / 60).toFixed(1) + '분 · 실제 회복은 직접 회상에 포함됩니다.</p><div class="xp-complete-actions"><button class="xp-primary" data-x-action="finish">이번 원정 마치기<span aria-hidden="true">✓</span></button>' + (today.remaining ? '<button class="xp-secondary" data-x-action="next-route">다음 경로 · 최대 6문항 →</button>' : today.unresolved ? '<button class="xp-secondary" data-x-action="repair">다시 볼 연결 · 최대 6문항 →</button>' : '') + '</div><p class="xp-complete-remaining">' + (today.remaining ? '오늘 첫 시도 ' + today.remaining + '개 남음' : '오늘의 첫 시도 완료') + ' · 다시 확인 ' + today.unresolved + '개 · 실제 남은 필수 ' + today.requiredRemaining + '개</p><section class="xp-codex"><header><div><p class="xp-eyebrow">FIELD NOTES</p><h2>이번 길에서 만난 지식</h2></div><span>' + finished.ids.length + '개의 원문 조각</span></header><div class="xp-codex-grid">' + finished.ids.map(function (id, index) {
+      var card = cardMap[id], result = roomResult(finished, id), info = outcomeInfo(result), region = regionInfo(card.topic);
+      return '<article class="xp-codex-card" style="--region:' + region.color + '"><div class="xp-codex-card-head"><span>' + String(index + 1).padStart(2, '0') + ' / ' + esc(topicLabel(card.topic)) + '</span><b>' + info.glyph + ' ' + info.label + '</b></div><h3>' + esc(card.prompt) + '</h3><p>' + esc(card.answer) + '</p></article>';
+    }).join('') + '</div></section>' + (candidate ? '<section class="xp-tomorrow"><div><p class="xp-eyebrow">내일 다시 만날 실마리</p><h2>' + esc(candidate.prompt) + '</h2><p>원하면 이 실제 복습 질문으로 다음 원정을 시작할 수 있어요.</p></div><button class="xp-secondary" id="expedition-reserve" data-card="' + esc(candidate.id) + '">내일 첫 질문으로 예약</button><p id="expedition-reservation-status" role="status"></p></section>' : '') + '<footer class="xp-end-note">플레이의 지도와 시험 숙련 지표는 다릅니다. 원답·복습·예약·백업은 <button class="xp-text-button" data-x-action="plan">학습 기록</button>에 보존됩니다.</footer></div>';
+    bindExpeditionActions();
+    var reserve = root.querySelector('#expedition-reserve');
+    if (reserve) reserve.addEventListener('click', function () {
+      refreshState();
+      try { state = E.reserveFirst(state, reserve.dataset.card, {today:day()}); var saved = persist(); var status = root.querySelector('#expedition-reservation-status'); if (status) status.textContent = saved ? '내일의 첫 질문으로 예약했습니다.' : storageWarning; if (saved) { reserve.disabled = true; reserve.textContent = '내일 첫 질문 예약됨 ✓'; } }
+      catch (err) { var status = root.querySelector('#expedition-reservation-status'); if (status) status.textContent = '지금 예약할 수 있는 질문이 바뀌었습니다. 학습 기록에서 확인해 주세요.'; }
+    });
+    root.scrollIntoView({block:'start'});
+    announce('원정 완료. 직접 회상 ' + counts.recall + '개, 실제 회복 ' + counts.recovered + '개. 여기서 마치거나 다음 경로를 선택할 수 있습니다.');
+  }
+  function expeditionKey(event, tag) {
+    if (!isExpedition()) return;
+    var draft = currentDraft();
+    if (!draft || canFork()) return;
+    if (tag === 'BUTTON' && (event.key === 'Enter' || event.code === 'Space' || event.key === ' ')) return;
+    if (draft.graded && (event.key === 'Enter' || event.code === 'Space' || event.key === ' ')) { event.preventDefault(); nextExpedition(); return; }
+    if (draft.interactionType !== 'recall' && !draft.revealed) {
+      if (/^[1-8]$/.test(event.key)) { var selector = draft.interactionType === 'sequence' ? '[data-fragment="' : '[data-x-choice="'; var button = root.querySelector(selector + (Number(event.key) - 1) + '"]'); if (button && !button.disabled) { event.preventDefault(); button.click(); } }
+      else if (event.key === 'Enter' || event.code === 'Space' || event.key === ' ') { event.preventDefault(); submitObjective(); }
+    } else if (draft.interactionType === 'recall') {
+      if (!draft.revealed && (event.code === 'Space' || event.key === ' ')) { event.preventDefault(); revealExpedition(); }
+      else if (draft.revealed && /^[1-4]$/.test(event.key)) { event.preventDefault(); gradeExpedition(Number(event.key) - 1); }
+    }
   }
   function exportBackup() {
     if (activeSession) captureTime();
@@ -500,7 +942,7 @@
     C.coverage.forEach(function (x) { sourceLabels[x.tool] = x.label; });
     loadState();
     window.addEventListener('hub:tabchange', function (ev) {
-      if (activeSession) { if (ev.detail && ev.detail.id !== 'home') prepareToolVisit(); saveSession(); }
+      if (activeSession) { if (ev.detail && ev.detail.id !== 'home') prepareToolVisit(ev.detail.id); saveSession(); }
       activeSession = null; startedAt = 0; elapsedBeforePause = 0;
       var tools = document.getElementById('hub-tool-list'), toggle = document.getElementById('hub-tools-toggle');
       if (tools) tools.hidden = true; if (toggle) toggle.setAttribute('aria-expanded', 'false');
@@ -509,11 +951,12 @@
     window.addEventListener('hub:answer', onLegacyAnswer);
     window.addEventListener('storage', function (ev) { if (ev.key === STORAGE && window.__active === 'home' && !activeSession) dashboard(); });
     window.addEventListener('pagehide', function () { if (activeSession) saveSession(); });
-    document.addEventListener('visibilitychange', function () { if (!activeSession) return; if (document.hidden) { saveSession(); startedAt = 0; } else if (currentDraft().started) startedAt = Date.now(); });
+    document.addEventListener('visibilitychange', function () { if (!activeSession) return; if (document.hidden) { saveSession(); startedAt = 0; } else { var d = currentDraft(); if (d && d.started && !d.graded) startedAt = Date.now(); } });
     document.addEventListener('keydown', function (ev) {
       if (!activeSession || window.__active !== 'home' || ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
       var tag = document.activeElement && document.activeElement.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (document.activeElement && document.activeElement.isContentEditable)) return;
+      if (isExpedition()) { expeditionKey(ev, tag); return; }
       if ((ev.code === 'Space' || ev.key === ' ') && !revealed) { ev.preventDefault(); reveal(); }
       else if (revealed && /^[1-4]$/.test(ev.key)) { ev.preventDefault(); grade(Number(ev.key) - 1); }
     });
