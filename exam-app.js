@@ -489,8 +489,8 @@
   }
   var REGIONS = {
     systems:{symbol:'gate', name:'기경의 관문', line:'흩어진 계통에 이름을 되찾아 주세요.', color:'#e8bb72', x:22, y:22},
-    points:{symbol:'river', name:'오수의 강', line:'혈과 이름을 이어, 막힌 물길을 여세요.', color:'#77d4cd', x:50, y:45},
-    history:{symbol:'tower', name:'기록의 탑', line:'의가와 저서의 잊힌 기록을 찾아가세요.', color:'#c4a2ef', x:52, y:12},
+    points:{symbol:'river', name:'오수의 강', line:'혈과 이름을 이어, 막힌 물길을 여세요.', color:'#77d4cd', x:50, y:46},
+    history:{symbol:'tower', name:'기록의 탑', line:'의가와 저서의 잊힌 기록을 찾아가세요.', color:'#c4a2ef', x:52, y:8},
     syndromes:{symbol:'storm', name:'징후의 폭풍', line:'닮은 증상 사이에서 경맥을 찾아내세요.', color:'#eeb18a', x:81, y:29},
     routes:{symbol:'serpent', name:'유주의 뱀길', line:'원문의 조각을 이어 다음 길을 여세요.', color:'#a7cf83', x:76, y:69},
     back_cross:{symbol:'bridge', name:'교회의 다리', line:'높이와 교차점을 잇는 다리를 놓으세요.', color:'#80bfe5', x:18, y:67},
@@ -576,7 +576,9 @@
     refreshState(); pendingSession = getPending();
     var X = expeditionApi(), today = X.getDay(C, state, {today:day()}), world = X.getWorld(C, state, {today:day()}), pref = expeditionPreferences();
     var room = X.buildRoom(C, state, {today:day(), topic:worldTopic, approach:pref.approach, phase:'primary'});
-    var chosenTopic = worldTopic || (room.ids[0] && cardMap[room.ids[0]].topic) || C.topics[0].id, region = regionInfo(chosenTopic);
+    var pendingCard = pendingSession && cardMap[pendingSession.ids[pendingSession.index]];
+    var pendingTopic = pendingSession && C.topics.some(function (t) { return t.id === pendingSession.topic; }) ? pendingSession.topic : pendingCard && pendingCard.topic;
+    var chosenTopic = pendingTopic || worldTopic || (room.ids[0] && cardMap[room.ids[0]].topic) || C.topics[0].id, region = regionInfo(chosenTopic);
     var chosen = world.topics.find(function (t) { return t.id === chosenTopic; }), isPending = !!pendingSession, count = isPending ? pendingSession.ids.length : room.ids.length;
     var button = isPending ? '<button class="xp-primary" data-x-action="resume">' + (pendingSession.expedition ? '원정 이어가기' : '진행 중인 학습 이어가기') + '<span aria-hidden="true">→</span></button>' : count ? '<button class="xp-primary" data-x-action="start">' + count + '문항 원정 시작<span aria-hidden="true">→</span></button>' : today.unresolved ? '<button class="xp-primary" data-x-action="repair">남은 연결 살펴보기<span aria-hidden="true">→</span></button>' : '<button class="xp-primary" data-x-action="plan">학습 기록 살펴보기<span aria-hidden="true">↗</span></button>';
     var roomLine = isPending ? '중단한 위치와 원답이 기다립니다.' : count ? '길을 고르고, 정한 ' + count + '문항에서 끝나는 한 판.' : today.status === 'after-exam' ? '설정한 시험일 이후입니다. 기록에서 날짜와 연습을 선택하세요.' : today.unresolved ? '첫 원정은 마쳤습니다. 다시 확인할 연결이 남아 있습니다.' : '오늘의 계획을 마쳤습니다. 여기서 쉬어도 좋습니다.';
@@ -584,7 +586,7 @@
       (storageWarning ? '<div class="ex-notice ex-notice-error" role="alert">' + esc(storageWarning) + '</div>' : '') + (notice ? '<div class="ex-notice" role="status">' + esc(notice) + '</div>' : '') +
       '<div class="xp-home-heading"><div><p class="xp-eyebrow">THE MERIDIAN EXPEDITION</p><h1>흩어진 기억을,<br><em>하나의 길로.</em></h1></div><p>일곱 구역을 건너고,<br>어제의 오답과 다시 만나는 원정.</p></div>' +
       '<div class="xp-world-layout"><section class="xp-map-panel"><div class="xp-map-label"><span><i></i> 원정 지도</span><button class="xp-text-button' + (!worldTopic ? ' is-active' : '') + '" id="expedition-recommend">추천 경로</button></div>' + worldMapMarkup(world) + '<div class="xp-map-legend"><span><i class="xp-legend-lit"></i>직접 떠올린 기억</span><span><i class="xp-legend-choice"></i>보기로 확인한 기억</span><span class="xp-map-note">학습을 위한 상상 지도</span></div></section>' +
-      '<aside class="xp-departure" style="--region:' + region.color + '"><div class="xp-guide-welcome">' + art('guide', 'xp-guide-hero', '등불을 든 원정 안내자') + '<p>길은 작게 열고,<br><strong>기억은 직접 찾아요.</strong></p></div><div class="xp-route-intro"><p class="xp-eyebrow">' + (worldTopic ? '선택한 구역을 먼저' : '오늘의 추천 경로') + '</p><h2>' + esc(region.name) + '</h2><p>' + esc(region.line) + '</p></div>' +
+      '<aside class="xp-departure" style="--region:' + region.color + '"><div class="xp-guide-welcome">' + art('guide', 'xp-guide-hero', '등불을 든 원정 안내자') + '<p>길은 작게 열고,<br><strong>기억은 직접 찾아요.</strong></p></div><div class="xp-route-intro"><p class="xp-eyebrow">' + (isPending ? '진행 중인 원정' : worldTopic ? '선택한 구역을 먼저' : '오늘의 추천 경로') + '</p><h2>' + esc(region.name) + '</h2><p>' + esc(region.line) + '</p></div>' +
       '<div class="xp-approaches" role="group" aria-label="공략 방식"><button data-approach="play" aria-pressed="' + (pref.approach === 'play') + '"><span aria-hidden="true">◇</span><strong>플레이</strong><small>원래 보기 · 조각 맞추기</small></button><button data-approach="recall" aria-pressed="' + (pref.approach === 'recall') + '"><span aria-hidden="true">✧</span><strong>직접 회상</strong><small>내 힘으로 답 꺼내기</small></button></div>' +
       '<div class="xp-departure-route" aria-label="이번 판 ' + count + '문항">' + Array.from({length:count}, function (_, i) { var boss = isPending ? pendingSession.expedition && pendingSession.ids[i] === pendingSession.expedition.bossId : room.ids[i] === room.bossId; return '<span class="' + (boss ? 'is-boss' : '') + '">' + (boss ? '⋈' : i + 1) + '</span>'; }).join('') + '</div>' +
       (room.bossId && !isPending ? '<p class="xp-boss-teaser"><span aria-hidden="true">⋈</span> 지난 오답의 <b>기억 매듭</b>이 기다립니다.</p>' : '') + button + '<p class="xp-room-promise">' + roomLine + '</p><div class="xp-region-proof"><span>이 구역의 기억</span><b>회상 ' + num(chosen && chosen.recalled) + ' <i>·</i> 보기 확인 ' + num(chosen && chosen.choiceConfirmed) + '</b></div></aside></div>' +
